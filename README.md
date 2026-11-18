@@ -13,9 +13,15 @@ Click a category to browse checks, expand a rule, and click an element to scroll
 
 The panel overlays the left 380 pixels of the page; it does not reflow the site. Close it to interact with content underneath it.
 
+The inspector, numbered markers, and highlights briefly disappear while the scan engine measures the page, then return automatically. This prevents Access Lens overlays from causing false “background color could not be determined” contrast reviews. You can leave **Page markers** enabled when rescanning.
+
 The compact panel keeps findings in their own main scroll area. Use the **View** dropdown to switch between Details, Reference, Order, Structure, Contrast, Changes, Manual, Sitemap, and Site report. **Scan & save details** expands to show the page/engine metadata, full save filename and time, page state selector, scan scope, and browsing pause control. Save/queue status remains on its collapsed summary, and retry actions stay visible when needed. Report explanations and sitemap legends are expandable within their views.
 
 ## Save settings
+
+Page review choices are saved in each page/state report: WCAG criterion decisions, the general manual checklist, and the assessment of a recorded keyboard run. Choose a save folder in Settings. Changing a checklist decision or keyboard assessment updates that JSON immediately, even when **Automatically save after each successful scan** is off. Failed writes use the recovery queue. Without a selected folder, use **Export JSON** after making choices.
+
+When opening the inspector again, the extension reads the matching JSON from that selected folder and restores earlier decisions, independently of **Remember history**. Page states have separate files. Restored choices retain their original review times; a fresh scan may require revalidation. Newer locally remembered or queued checklist decisions take precedence. Missing files start a new review; unreadable or invalid JSON stops the scan before the existing report can be replaced. Restore folder access or repair the file and scan again. Browser downloads alone cannot be read back automatically; select their folder in Settings to allow reading.
 
 Click **Settings** in the inspector (or the extension's Options entry) and **Choose folder…** to select a JSON destination. This opens the browser's folder picker and requests write access to that folder. Manual exports then save directly there. **Automatically save after each successful scan** is off by default; when enabled, it saves the opening scan and every successful rescan. Settings apply across sites. Each page gets a stable filename derived from a SHA-256 hash of its protocol, host (including port), and path. Rescanning the same page replaces its JSON in the selected folder. Different paths or sites get different files. Query strings and fragments are ignored by default; selected route identity can be enabled in Settings. Exports include pagePath (protocol, host, and pathname); query strings, fragments, and embedded credentials are excluded. Browser downloads use the same suggested name, but the browser may add a numbered suffix rather than replace an existing download.
 
@@ -68,6 +74,18 @@ Version 1.8.0 adds **View → Additional checks**. Seven supplementary checks ru
 These are review candidates, not confirmed violations or whole-criterion passes. Autoplay may be blocked/short/muted or have custom controls; video may have no audio or use external captions; fields may collect another person's details; animations may not convey moving information; positive tab order and clipping can need contextual interpretation. Overflow at the current viewport is not a 320 CSS pixel reflow test. Caption accuracy, custom controls, visual overlap, hidden states, language exceptions, frames, and closed shadow roots still need evaluation. New supplemental or text-spacing evidence makes earlier affected criterion assessments require revalidation. The coverage checklist links each criterion to its supplementary evidence. No new browser permission is required.
 
 ### Recorded keyboard traversal
+
+#### First-time setup and starting a test
+
+1. Open Access Lens **Settings → Automated keyboard testing** and click **Enable keyboard testing**. This is off by default. Confirm that the status says testing is enabled.
+2. If the browser disabled the extension after an update, open `chrome://extensions` or `edge://extensions`, review the requested permissions, and re-enable Access Lens. Keyboard testing requires the debugger permission included with installation.
+3. Close DevTools and other debuggers. Return to the webpage and refresh it if Access Lens was updated or reloaded, then open the inspector.
+4. Choose **View → Keyboard test**, set the steps, and click **Run keyboard test**.
+5. Wait for the browser's debugging banner. Leave it open and click **Begin traversal** in the webpage. Clicking Cancel on the banner stops the test. Keep the tab active and avoid typing during the run.
+
+Press **Escape** or **Stop keyboard test** to stop early. To keep the transcript on disk, choose a writable folder and enable automatic saving, or click **Export JSON** after the run.
+
+After clicking **Run keyboard test**, wait for Chrome's debugging banner, then click **Begin traversal** in the webpage. This returns focus to the page before any Tab is sent. Leave the banner open during the run: canceling it disconnects the driver and stops testing. Startup focus loss sends no Tab presses; interruption details distinguish a canceled debugger from focus leaving the page. Switching tabs, navigation, embedded frames, and Escape still stop the test.
 
 Version 1.8.1 adds a numbered path on the page when **View → Keyboard test** is selected. Arrows join consecutive recorded focus stops; numbers match the transcript's actual step numbers. Forward Tab uses solid blue arrows, and Shift+Tab uses dashed arrows with purple numbers. Choose forward, reverse, or both directions, or hide the path. Numbers select and highlight the corresponding transcript entry. Positions are recalculated on scrolling/resizing from the current DOM, rather than the historical coordinates; missing/hidden elements break the path. Initial document focus and browser-boundary entries are not drawn. Repeated visits to one element keep their separate step numbers. The existing **Page markers** switch also hides the path.
 

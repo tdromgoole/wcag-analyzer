@@ -51,7 +51,9 @@ globalThis.accessLensKeyboard = {
       return observation;
     };
     try {
-      await record('Start', 'initial');
+      const initial = await record('Start', 'initial');
+      if (signal.aborted) throw new Error('stopped-by-user');
+      if (!initial.documentFocused) throw new Error('focus-left-document');
       for (const direction of ['forward','reverse']) {
         for (let index = 0; index < steps; index++) {
           if (signal.aborted) throw new Error('stopped-by-user');
@@ -65,7 +67,8 @@ globalThis.accessLensKeyboard = {
       run.status = 'completed'; run.reason = 'step-limit-reached';
     } catch (error) {
       run.status = 'interrupted';
-      run.reason = ['stopped-by-user','frame-boundary','focus-left-document'].includes(error.message) ? error.message : 'driver-unavailable';
+      const reason = error.code || error.message;
+      run.reason = ['stopped-by-user','frame-boundary','focus-left-document','debugger-canceled','driver-disconnected','page-navigated','time-limit','disabled-in-settings'].includes(reason) ? reason : 'driver-unavailable';
     }
     run.finishedAt = new Date().toISOString();
     run.reviewRequired = true;

@@ -5,6 +5,7 @@ globalThis.accessLensKeyboardDriver = {
     const session = this.session;
     if (!session) return;
     this.session = null;
+    this.lastEnd = { token: session.token, reason };
     clearTimeout(session.timer);
     if (session.run?.status === 'running') {
       session.run.status = 'interrupted'; session.run.reason = reason;
@@ -55,14 +56,22 @@ globalThis.accessLensKeyboardDriver = {
       return { assessment: stored.run.assessment };
     }
     const session = this.session;
-    if (!session || session.tabId !== sender.tab.id || session.documentId !== sender.documentId || session.token !== message.token || session.filename !== message.filename) return { error: 'Keyboard session ended. Start a new test.' };
+    if (!session || session.tabId !== sender.tab.id || session.documentId !== sender.documentId || session.token !== message.token || session.filename !== message.filename) {
+      const reason = this.lastEnd?.token === message.token ? this.lastEnd.reason : 'driver-unavailable';
+      return { error: reason === 'debugger-canceled' ? 'Keyboard test canceled from the browser debugging banner. Start a new test and leave the banner open while testing.' : 'Keyboard session ended. Start a new test.', code: reason };
+    }
+    if (message.action === 'ready') return { ok: true };
     if (message.action === 'key') {
       const params = { key: 'Tab', code: 'Tab', windowsVirtualKeyCode: 9, nativeVirtualKeyCode: 9, modifiers: message.reverse === true ? 8 : 0 };
       try {
         await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Input.dispatchKeyEvent', { ...params, type: 'rawKeyDown' });
         await chrome.debugger.sendCommand({ tabId: session.tabId }, 'Input.dispatchKeyEvent', { ...params, type: 'keyUp' });
         return { ok: true };
-      } catch { await this.end('driver-unavailable'); return { error: 'Keyboard driver disconnected.' }; }
+      } catch {
+        await this.end('driver-unavailable');
+        const code = this.lastEnd?.token === session.token ? this.lastEnd.reason : 'driver-unavailable';
+        return { error: code === 'debugger-canceled' ? 'Keyboard test canceled from the browser debugging banner. Leave the banner open during testing.' : 'Keyboard driver disconnected.', code };
+      }
     }
     if (message.action === 'checkpoint') {
       if (!message.run || !Array.isArray(message.run.entries) || message.run.entries.length > 201 || JSON.stringify(message.run).length > 500000) return { error: 'Keyboard transcript exceeded its limit.' };
@@ -74,8 +83,8 @@ globalThis.accessLensKeyboardDriver = {
     return { error: 'Unsupported keyboard action.' };
   }
 };
-chrome.debugger?.onDetach.addListener(source => {
-  if (accessLensKeyboardDriver.session?.tabId === source.tabId) accessLensKeyboardDriver.end('driver-disconnected').catch(() => {});
+chrome.debugger?.onDetach.addListener((source, reason) => {
+  if (accessLensKeyboardDriver.session?.tabId === source.tabId) accessLensKeyboardDriver.end(reason === 'canceled_by_user' ? 'debugger-canceled' : 'driver-disconnected').catch(() => {});
 });
 chrome.debugger?.onEvent.addListener((source, method, params) => {
   if (accessLensKeyboardDriver.session?.tabId === source.tabId &&

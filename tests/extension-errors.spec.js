@@ -3,6 +3,47 @@ const path = require('node:path');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
+test('contrast measurements ignore visible inspector and shadow markers and restore them afterward', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4178');
+  await page.setContent('<p style="margin:0;color:#222;background:#fff;font:16px Arial">Readable text</p>');
+  for (const file of [require.resolve('axe-core/axe.min.js'), path.resolve('features.js')]) await page.addScriptTag({ path: file });
+  const result = await page.evaluate(async () => {
+    const options = { runOnly: { type: 'rule', values: ['color-contrast'] } };
+    const baseline = await accessLensFeatures.runAxe(document, options);
+    const host = document.createElement('div'); host.id = 'access-lens-extension';
+    host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:block!important';
+    host.attachShadow({ mode: 'open' }).innerHTML = '<div style="position:fixed;inset:0;background:orange">Marker covering text</div>';
+    document.body.append(host);
+    const coveredBefore = document.elementFromPoint(15, 15) === host;
+    const run = axe.run.bind(axe); let hiddenDuring = false;
+    axe.run = async (...args) => { hiddenDuring = getComputedStyle(host).display === 'none' && document.elementFromPoint(15, 15) !== host; return run(...args); };
+    const rescan = await accessLensFeatures.runAxe({ exclude: [host] }, options);
+    return { coveredBefore, hiddenDuring, coveredAfter: document.elementFromPoint(15, 15) === host,
+      display: host.style.getPropertyValue('display'), priority: host.style.getPropertyPriority('display'),
+      baseline: { violations: baseline.violations.length, incomplete: baseline.incomplete.length },
+      rescan: { violations: rescan.violations.length, incomplete: rescan.incomplete.length } };
+  });
+  expect(result.coveredBefore && result.hiddenDuring && result.coveredAfter).toBe(true);
+  expect(result.display).toBe('block'); expect(result.priority).toBe('important');
+  expect(result.baseline).toEqual({ violations: 0, incomplete: 0 });
+  expect(result.rescan).toEqual(result.baseline);
+});
+
+test('failed scans restore the inspector without replacing changes made during scanning', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4178');
+  await page.addScriptTag({ path: path.resolve('features.js') });
+  const result = await page.evaluate(async () => {
+    const host = document.createElement('div'); host.id = 'access-lens-extension'; document.body.append(host);
+    window.axe = { run: async () => { throw new Error('Scan failed'); } };
+    try { await accessLensFeatures.runAxe({}, {}); } catch { /* Expected. */ }
+    const restored = !host.style.getPropertyValue('display') && getComputedStyle(host).display !== 'none';
+    axe.run = async () => { host.style.setProperty('display', 'flex'); throw new Error('Scan failed'); };
+    try { await accessLensFeatures.runAxe({}, {}); } catch { /* Expected. */ }
+    return { restored, changed: host.style.display };
+  });
+  expect(result).toEqual({ restored: true, changed: 'flex' });
+});
+
 test('concurrent menu refreshes serialize creation and consume callback errors', async () => {
   const items = new Set(); let duplicates = 0, callbackErrorsRead = 0, lastError;
   const runtime = { onMessage: { addListener() {} } };

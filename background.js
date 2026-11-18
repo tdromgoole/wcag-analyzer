@@ -31,8 +31,9 @@ async function handleAuto(message, sender) {
     const previous = await accessLensSettings.history(message.filename);
     const baseline = accessLensWorkflow.baseline(message.report);
     message.report.manualChecks = previous.checklist || {};
+    if (previous.keyboardTest) message.report.keyboardTest = previous.keyboardTest;
     const previousKeyboard = await accessLensSettings.read('keyboard-last-run');
-    if (previousKeyboard.filename === message.filename && previousKeyboard.run) message.report.keyboardTest = previousKeyboard.run;
+    if (previousKeyboard.filename === message.filename && previousKeyboard.run && (!message.report.keyboardTest || Date.parse(previousKeyboard.run.startedAt) >= Date.parse(message.report.keyboardTest.startedAt))) message.report.keyboardTest = previousKeyboard.run;
     message.report.comparison = accessLensWorkflow.compare(previous.baseline, baseline);
     const metadata = { ...message.sitemap, ...(await accessLensFeatures.scanMetadata(message.report, policy.staleDays)),
       state: message.report.pageState.key,
@@ -87,7 +88,9 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     (async () => {
       const policy = accessLensFeatures.policy(await accessLensSettings.read(), message.report.pagePath);
       if (policy.excluded) return { error: 'This page is excluded in Settings. Remove its exclusion before saving.' };
-      const response = await accessLensSettings.saveRecoverable(message.report, message.automatic === true, message.filename, message.metadata);
+      const settings = await accessLensSettings.read();
+      if (message.decisionsChanged && !settings.directory) return { skipped: true };
+      const response = await accessLensSettings.saveRecoverable(message.report, message.decisionsChanged ? false : message.automatic === true, message.filename, message.metadata);
       if (!response.skipped && !response.download && message.metadata?.site) await accessLensSettings.sitemap(message.metadata.site, { ...message.metadata, status: response.saved ? 'saved' : response.queued ? 'queued' : 'failed' });
       return response;
     })()

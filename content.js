@@ -219,14 +219,14 @@
   }
   async function keyboardMessage(action, payload = {}, filename = exportFilename) {
     const response = await accessLensFeatures.sendRuntime({ type: 'access-lens-keyboard', action, filename, ...payload });
-    if (!response || response.error) throw new Error(response?.error || 'Keyboard driver unavailable. Reload the extension and page.');
+    if (!response || response.error) throw Object.assign(new Error(response?.error || 'Keyboard driver unavailable. Reload the extension and page.'), { code: response?.code });
     return response;
   }
   async function runKeyboard(steps) {
     if (keyboardController || spacingController || !exportReport) return;
     const snapshot = exportReport, filename = exportFilename;
     keyboardError = '';
-    let token, stop;
+    let token, stop, ready;
     const controller = new AbortController(); keyboardController = controller;
     const originalFocus = root.activeElement || document.activeElement;
     const originalHtmlTabIndex = document.documentElement.getAttribute('tabindex');
@@ -247,6 +247,22 @@
       stop.style.cssText = 'pointer-events:auto;position:fixed;right:12px;top:12px;padding:12px;border:2px solid white;border-radius:6px;background:#172b48;color:white;font:14px system-ui';
       stop.textContent = 'Stop keyboard test (or press Escape)'; stop.onclick = () => controller.abort(); root.append(stop);
       document.addEventListener('keydown', onEscape, true);
+      ready = document.createElement('div'); ready.id = 'keyboardReady';
+      ready.style.cssText = 'pointer-events:auto;position:fixed;top:70px;right:12px;max-width:340px;padding:16px;border:2px solid white;border-radius:6px;background:#172b48;color:white;font:14px system-ui';
+      const instructions = document.createElement('p');
+      instructions.textContent = 'The browser debugging banner is expected. Leave it open; Cancel ends the test. When ready, begin traversal here to return focus to the webpage. Keep this tab active and do not type during the run.';
+      const begin = document.createElement('button'); begin.id = 'beginKeyboardTraversal'; begin.textContent = 'Begin traversal';
+      ready.append(instructions, begin); root.append(ready); begin.focus();
+      const proceed = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => { controller.signal.removeEventListener('abort', abort); begin.onclick = null; reject(new Error('Keyboard test preparation timed out. Start a new test, leave the debugging banner open, then click Begin traversal.')); }, 90000);
+        const abort = () => { clearTimeout(timer); begin.onclick = null; resolve(false); };
+        begin.onclick = () => { clearTimeout(timer); controller.signal.removeEventListener('abort', abort); resolve(true); };
+        if (controller.signal.aborted) abort(); else controller.signal.addEventListener('abort', abort, { once: true });
+      });
+      if (!proceed || disposed) return;
+      // Verify the driver is still attached before starting a new transcript.
+      await keyboardMessage('ready', { token }, filename);
+      ready.remove(); ready = null;
       document.documentElement.setAttribute('tabindex', '-1'); document.documentElement.focus({ preventScroll: true });
       const run = { id: crypto.randomUUID(), startedAt: new Date().toISOString(), scannedAt: snapshot.scannedAt,
         pageStateKey: snapshot.pageState.key, mode: 'tab-traversal', status: 'running', reviewRequired: true,
@@ -276,7 +292,7 @@
       if (originalHtmlTabIndex === null) document.documentElement.removeAttribute('tabindex');
       else document.documentElement.setAttribute('tabindex', originalHtmlTabIndex);
       $('aside').inert = false; $('aside').style.visibility = asideVisibility; expand.inert = false; $('#overlay').inert = false;
-      stop?.remove(); keyboardController = null; keyboardToken = null;
+      ready?.remove(); stop?.remove(); keyboardController = null; keyboardToken = null;
       if (!disposed) {
         $('#scan').disabled = false; $('#export').disabled = false; viewSelect.disabled = false;
         originalFocus?.focus?.({ preventScroll: true });
@@ -297,11 +313,20 @@
     const steps = document.createElement('input'); steps.id = 'keyboardSteps'; steps.type = 'number'; steps.min = '1'; steps.max = '100'; steps.value = '20'; steps.style.width = '70px'; label.append(steps); results.append(label);
     const start = document.createElement('button'); start.id = 'runKeyboard'; start.textContent = 'Run keyboard test';
     start.onclick = () => runKeyboard(steps.value); results.append(start);
-    const permission = document.createElement('p'); permission.textContent = 'First enable keyboard testing in Settings. The extension requires debugger access at installation; Chrome shows a banner during testing. Close DevTools before starting.'; help.append(permission);
+    const setup = document.createElement('ol');
+    for (const instruction of [
+      'Open Settings → Automated keyboard testing and click Enable keyboard testing. It is off by default; check that the status says testing is enabled.',
+      'If the browser disabled Access Lens after an update, review its requested permissions on the browser Extensions page and re-enable it. Keyboard testing requires the debugger permission included with installation.',
+      'Close DevTools and other debuggers. Return to this webpage and refresh it if the extension was updated or reloaded, then open Access Lens → View → Keyboard test.',
+      'Choose the steps and click Run keyboard test. Wait for the debugging banner, leave it open, then click Begin traversal in the webpage. Canceling the banner stops the test. Keep this tab active and avoid typing during the run.'
+    ]) { const item = document.createElement('li'); item.textContent = instruction; setup.append(item); }
+    // Setup must remain visible even when an earlier transcript exists.
+    const setupTitle = document.createElement('p'); setupTitle.textContent = 'Set up and start keyboard testing:';
+    results.insertBefore(setupTitle, help); results.insertBefore(setup, help);
     const run = exportReport.keyboardTest;
     if (!run) { const empty = document.createElement('p'); empty.textContent = 'No keyboard transcript for this page state yet.'; results.append(empty); return; }
     const summary = document.createElement('p'); summary.id = 'keyboardSummary';
-    const reasons = { 'focus-left-document': 'focus moved outside the webpage', 'frame-boundary': 'reached an embedded frame', 'step-limit-reached': 'reached the selected step limit', 'stopped-by-user': 'stopped by the user', 'driver-unavailable': 'keyboard driver disconnected', 'page-navigated': 'page navigated', 'browser-or-worker-restarted': 'browser or extension restarted' };
+    const reasons = { 'focus-left-document': 'focus moved outside the webpage; keep this tab active and begin traversal from the webpage', 'frame-boundary': 'reached an embedded frame', 'step-limit-reached': 'reached the selected step limit', 'stopped-by-user': 'stopped by the user', 'driver-unavailable': 'keyboard driver disconnected', 'driver-disconnected': 'browser debugger disconnected', 'debugger-canceled': 'canceled from the browser debugging banner; leave the banner open during testing', 'time-limit': 'reached the test time limit', 'disabled-in-settings': 'keyboard testing disabled in Settings', 'page-navigated': 'page navigated', 'browser-or-worker-restarted': 'browser or extension restarted' };
     summary.textContent = `${run.status}: ${reasons[run.reason] || run.reason || 'recording'} - ${Math.max(0, run.entries.length - 1)} key presses. ${run.startedAt}. Human review required. This does not pass WCAG keyboard checks.`;
     if (run.scannedAt !== exportReport.scannedAt) summary.textContent += ' Earlier scan: run again to test the current page.';
     results.append(summary);
@@ -327,7 +352,7 @@
         catch { recoveryError = true; }
       }
       exportReport.wcagCoverage = accessLensWorkflow.coverage(exportReport, scanPolicy.staleDays);
-      await refreshSitemap(true); await saveReport(true);
+      await refreshSitemap(true); await saveReport(true, true);
       assessment.disabled = false;
       assessmentStatus.textContent = `Assessment: ${run.assessment.status}, recorded ${run.assessment.checkedAt}. Included in this report's JSON.${recoveryError ? ' The local recovery copy could not be updated; export JSON to retain this assessment.' : ''}`;
     };
@@ -553,7 +578,7 @@
           exportReport.wcagCoverage = accessLensWorkflow.coverage(exportReport, scanPolicy.staleDays);
           updateSummary(); updateEvidence();
           saveStatus.textContent = 'Checklist changed; export to update your saved JSON.';
-          try { await remember(); await refreshSitemap(true); await saveReport(true); }
+          try { await remember(); await refreshSitemap(true); await saveReport(true, true); }
           catch { workflowStatus.textContent = 'Checklist is available in this inspector, but could not be remembered across sessions.'; }
         };
         select.onchange = recordCheck;
@@ -631,8 +656,9 @@
         try {
           const previous = await accessLensFeatures.sendRuntime({ type: 'access-lens-history', filename: exportFilename });
           if (previous?.error) throw new Error();
-          if (previous?.baseline) activeSession = { baseline: previous.baseline, checklist: previous.checklist || {} };
-        } catch { workflowStatus.textContent = 'Saved history unavailable; comparison will use this session.'; }
+          activeSession = { baseline: previous.baseline, checklist: previous.checklist || {} };
+          if (previous.keyboardTest) exportReport.keyboardTest = previous.keyboardTest;
+        } catch { throw new Error('Previous decisions could not be read. Restore folder access in Settings or check the saved JSON, then scan again. The saved report has not been replaced.'); }
       }
       comparison = accessLensWorkflow.compare(activeSession?.baseline, currentBaseline);
       activeSession ||= { checklist: {} };
@@ -640,7 +666,7 @@
       if (globalThis.accessLensKeyboard && globalThis.chrome?.runtime?.id) {
         try {
           const previousKeyboard = await keyboardMessage('latest');
-          if (previousKeyboard.run) exportReport.keyboardTest = previousKeyboard.run;
+          if (previousKeyboard.run && (!exportReport.keyboardTest || Date.parse(previousKeyboard.run.startedAt) >= Date.parse(exportReport.keyboardTest.startedAt))) exportReport.keyboardTest = previousKeyboard.run;
         } catch { /* Scanning is available even if keyboard recovery is unavailable. */ }
       }
       exportReport.comparison = comparison;
@@ -663,7 +689,7 @@
   }
   $('#scan').onclick=scan;
   $('#markers').onchange=position;
-  async function saveReport(automatic = false) {
+  async function saveReport(automatic = false, decisionsChanged = false) {
     if (!exportReport) return;
     exportReport.wcagCoverage = accessLensWorkflow.coverage(exportReport, scanPolicy.staleDays);
     const snapshot = exportReport;
@@ -678,7 +704,7 @@
         manualFailures: Object.values(snapshot.manualChecks || {}).filter(check => check.status === 'fail').length + (snapshot.keyboardTest?.assessment?.status === 'fail' ? 1 : 0) };
       // Direct script injection is used by the browser tests; installed extensions use the worker.
       const response = globalThis.chrome?.runtime?.id
-        ? await accessLensFeatures.sendRuntime({ type: 'access-lens-save', report: snapshot, filename, automatic, metadata })
+        ? await accessLensFeatures.sendRuntime({ type: 'access-lens-save', report: snapshot, filename, automatic, decisionsChanged, metadata })
         : automatic ? { skipped: true } : { download: true };
       if (disposed) return;
       if (!response) throw new Error();
@@ -693,6 +719,7 @@
         retry.hidden = false;
         return;
       }
+      if (response.skipped && decisionsChanged) saveStatus.textContent = 'Choices updated. Choose a save folder in Settings to save them automatically, or Export JSON.';
       if (response?.saved) {
         saveStatus.textContent = automatic ? 'JSON auto saved to your selected folder.' : 'JSON saved to your selected folder.';
         saveDetail.textContent = `Last successful save: ${new Date().toLocaleString()} · ${filename}`;

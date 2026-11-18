@@ -30,7 +30,15 @@ input,textarea,select{font:inherit;box-sizing:border-box}input[type=text],input[
 <button id="retryQueue">Retry queued saves</button><button id="deleteQueue">Delete all queued reports</button>
 <p id="queueStatus" role="status"></p><ul id="queueList"></ul>
 <h2>Automated keyboard testing</h2>
-<p>Enable real Tab/Shift+Tab testing on demand from the inspector. Debugger access is declared at installation because Chrome does not support it as an optional permission. This setting is off by default. Chrome displays a debugging banner during a run. Tests move focus; they do not activate controls. Close DevTools before starting.</p>
+<p>Keyboard testing is off by default. Complete these steps before your first test:</p>
+<ol>
+<li>Click <strong>Enable keyboard testing</strong> below and check that the status says testing is enabled.</li>
+<li>If the browser disabled Access Lens after an update, open its Extensions page, review the requested permissions, and re-enable the extension. Keyboard testing requires the debugger permission included with installation.</li>
+<li>Close DevTools and other debuggers. Return to the webpage, refresh it if the extension was updated or reloaded, and open Access Lens.</li>
+<li>Choose <strong>View → Keyboard test</strong>, set the steps, and click <strong>Run keyboard test</strong>.</li>
+<li>Wait for the browser's debugging banner, leave it open, then click <strong>Begin traversal</strong> in the webpage. Canceling the banner stops the test. Keep the tab active and avoid typing until the run ends.</li>
+</ol>
+<p>Tests send Tab and Shift+Tab to move focus; they do not activate controls. Press Escape or click Stop keyboard test to interrupt a run.</p>
 <button id="enableKeyboard">Enable keyboard testing</button><button id="disableKeyboard">Disable keyboard testing</button>
 <p id="keyboardPermissionStatus" role="status"></p>
 <p>The latest structural keyboard transcript is stored locally for recovery, including interrupted runs. It contains no page text, names, typed values, or screenshots. Export JSON to keep it with a scan.</p>

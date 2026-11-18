@@ -45,6 +45,9 @@ test('real keyboard traversal records forward/reverse focus, flags, and interrup
       press: pressRealTab, sample: () => accessLensKeyboard.sample(), checkpoint: async () => {} });
     const controller = new AbortController();
     const stopped = {};
+    // The preceding reverse traversal can leave focus in browser chrome.
+    // A new run explicitly focuses the document before its first sample.
+    document.documentElement.focus();
     await accessLensKeyboard.run({ run: stopped, steps: 10, delay: 0, signal: controller.signal,
       press: pressRealTab, sample: () => accessLensKeyboard.sample(), checkpoint: async current => { if (current.entries.length === 2) controller.abort(); } });
     return { run, stopped };
@@ -78,14 +81,14 @@ test('traversal stops at frame boundaries and repeated focus is evidence rather 
 });
 
 test('worker binds driver sessions to the initiating document and preserves partial runs on navigation', async () => {
-  let granted = false, enabled = false, stored, detached = 0, navigated;
+  let granted = false, enabled = false, stored, detached = 0, navigated, onDetach;
   const commands = [];
   const context = vm.createContext({ crypto: require('node:crypto').webcrypto, setTimeout, clearTimeout,
     accessLensFeatures: { policy: () => ({}) },
     accessLensSettings: { read: async key => key ? stored || {} : { keyboardTestingEnabled: enabled }, write: async value => { stored = value; } },
     chrome: { permissions: { contains: async () => granted }, debugger: {
       attach: async () => {}, detach: async () => { detached++; }, sendCommand: async (...args) => commands.push(args),
-      onDetach: { addListener() {} }, onEvent: { addListener(callback) { navigated = callback; } }
+      onDetach: { addListener(callback) { onDetach = callback; } }, onEvent: { addListener(callback) { navigated = callback; } }
     } }
   });
   vm.runInContext(fs.readFileSync(path.resolve('keyboard-background.js'), 'utf8'), context);
@@ -117,6 +120,34 @@ test('worker binds driver sessions to the initiating document and preserves part
   // A browser/worker restart must not make a saved partial run look active.
   stored.run.status = 'running';
   expect((await keyboard.handle({ ...message, action: 'latest' }, sender)).run.reason).toBe('browser-or-worker-restarted');
+  const next = await keyboard.handle(message, sender);
+  await keyboard.handle({ ...message, action: 'checkpoint', token: next.token, run: { status: 'running', entries: [] } }, sender);
+  onDetach({ tabId: 7 }, 'canceled_by_user');
+  await new Promise(resolve => setTimeout(resolve, 10));
+  expect(stored.run.reason).toBe('debugger-canceled');
+  const canceled = await keyboard.handle({ ...message, action: 'ready', token: next.token }, sender);
+  expect(canceled.code).toBe('debugger-canceled');
+  expect(canceled.error).toContain('banner');
+});
+
+test('unfocused startup sends no keys and preserves debugger cancellation as its stop reason', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4178');
+  await page.addScriptTag({ path: path.resolve('keyboard.js') });
+  const result = await page.evaluate(async () => {
+    let presses = 0;
+    const options = { steps: 3, delay: 0, signal: new AbortController().signal, checkpoint: async () => {},
+      press: async () => { presses++; }, sample: async () => ({ target: [], flags: [], documentFocused: false }) };
+    const unfocused = {};
+    await accessLensKeyboard.run({ ...options, run: unfocused });
+    const canceled = {};
+    await accessLensKeyboard.run({ ...options, run: canceled, sample: async () => ({ target: [], flags: [], documentFocused: true }),
+      press: async () => { throw Object.assign(new Error('Disconnected'), { code: 'debugger-canceled' }); } });
+    return { presses, unfocused, canceled };
+  });
+  expect(result.presses).toBe(0);
+  expect(result.unfocused.reason).toBe('focus-left-document');
+  expect(result.unfocused.entries).toHaveLength(1);
+  expect(result.canceled.reason).toBe('debugger-canceled');
 });
 
 test('inspector runs real traversal and includes the transcript in exported JSON without passing manual checks', async ({ page }) => {
@@ -155,6 +186,9 @@ test('inspector runs real traversal and includes the transcript in exported JSON
   await ui.locator('#viewSelect').selectOption('Keyboard test');
   await ui.locator('#keyboardSteps').fill('2');
   await ui.locator('#runKeyboard').click();
+  await expect(ui.locator('#keyboardReady')).toContainText('Leave it open');
+  await expect(ui.locator('#keyboardTranscript li')).toHaveCount(0);
+  await ui.locator('#beginKeyboardTraversal').click();
   await expect(ui.locator('#keyboardSummary')).toContainText('focus moved outside the webpage');
   await expect(ui.locator('#keyboardTranscript li')).toHaveCount(5);
   await expect(ui.locator('.keyboard-step')).toHaveCount(2);
@@ -195,6 +229,7 @@ test('inspector runs real traversal and includes the transcript in exported JSON
   await ui.locator('#keyboardSteps').fill('2');
   await ui.locator('#runKeyboard').click();
   await expect(ui.locator('#stopKeyboard')).toBeVisible();
+  await ui.locator('#beginKeyboardTraversal').click();
   await expect(ui.locator('#stopKeyboard')).toHaveCount(0);
   await expect(ui.locator('#keyboardAssessment')).toHaveValue('not-reviewed');
 });

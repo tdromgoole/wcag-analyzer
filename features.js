@@ -5,6 +5,13 @@ globalThis.accessLensFeatures = {
   },
   contextInvalid(error) { return /Extension context invalidated|EXTENSION_CONTEXT_UNAVAILABLE/i.test(error?.message || ''); },
   async runAxe(context, options) {
+    // Excluding our DOM from axe does not exclude it from browser hit testing.
+    // Remove the fixed inspector and all shadow overlays from rendering while
+    // axe measures the page, including when markers are enabled during a rescan.
+    const inspector = document.getElementById('access-lens-extension');
+    const display = inspector?.style.getPropertyValue('display');
+    const priority = inspector?.style.getPropertyPriority('display');
+    inspector?.style.setProperty('display', 'none', 'important');
     const original = console.warn;
     const diagnostics = { assetPreloadFailed: false, mediaMetadataUnavailable: false };
     let active = true;
@@ -23,6 +30,10 @@ globalThis.accessLensFeatures = {
       results.accessLensEngineDiagnostics = diagnostics;
       return results;
     } finally {
+      if (inspector?.style.getPropertyValue('display') === 'none' && inspector.style.getPropertyPriority('display') === 'important') {
+        if (display) inspector.style.setProperty('display', display, priority);
+        else inspector.style.removeProperty('display');
+      }
       active = false;
       if (console.warn === capture) console.warn = original;
     }

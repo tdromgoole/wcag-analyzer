@@ -53,11 +53,71 @@ globalThis.accessLensSettings = {
   },
   async history(filename, next) {
     if (!/^access-lens-[a-f0-9]{64}\.json$/.test(filename || '')) throw new Error('Invalid history key.');
-    if (!(await this.read()).rememberHistory) return { enabled: false };
+    const settings = await this.read();
     const key = 'history:' + filename;
-    const previous = await this.read(key);
-    if (next) await this.write(next, key);
-    return { enabled: true, baseline: previous.baseline, checklist: previous.checklist };
+    const previous = settings.rememberHistory ? await this.read(key) : {};
+    if (next) {
+      if (settings.rememberHistory) await this.write(next, key);
+      return { enabled: Boolean(settings.rememberHistory) };
+    }
+    const saved = await this.savedReview(filename, settings);
+    const pending = this.pending ? (await this.pending())[filename]?.report : null;
+    const queued = pending ? this.reviewChoices(pending) : {};
+    const checklist = { ...saved.checklist };
+    for (const [id, check] of [...Object.entries(previous.checklist || {}), ...Object.entries(queued.checklist || {})]) {
+      if (!checklist[id] || Date.parse(check.checkedAt) > Date.parse(checklist[id].checkedAt)) checklist[id] = check;
+    }
+    const keyboardTest = queued.keyboardTest || saved.keyboardTest;
+    return { enabled: Boolean(settings.rememberHistory || settings.directory), baseline: previous.baseline, checklist: Object.keys(checklist).length ? checklist : undefined, keyboardTest };
+  },
+  async savedReview(filename, settings) {
+    if (!/^access-lens-[a-f0-9]{64}\.json$/.test(filename || '')) throw this.failure('INVALID_FILENAME');
+    if (!settings.directory) return {};
+    if (await settings.directory.queryPermission({ mode: 'readwrite' }) !== 'granted') throw this.failure('FOLDER_PERMISSION');
+    let file;
+    try { file = await (await settings.directory.getFileHandle(filename)).getFile(); }
+    catch (error) { if (error.name === 'NotFoundError') return {}; throw error; }
+    // A saved report is data, never executable content or a source of UI markup.
+    if (file.size > 20 * 1024 * 1024) throw this.failure('INVALID_REPORT');
+    const report = JSON.parse(await file.text());
+    if (report?.schemaVersion !== '2.0' || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) throw this.failure('INVALID_REPORT');
+    return this.reviewChoices(report);
+  },
+  reviewChoices(report) {
+    const checklist = {};
+    for (const [id] of accessLensWorkflow.checklist) {
+      const check = report.manualChecks?.[id];
+      if (!check || !['not-tested', 'pass', 'fail', 'not-applicable'].includes(check.status) || !Number.isFinite(Date.parse(check.checkedAt))) continue;
+      if (id.startsWith('scope-') && check.status === 'not-applicable') continue;
+      checklist[id] = { status: check.status, checkedAt: new Date(check.checkedAt).toISOString() };
+    }
+    const run = report.keyboardTest;
+    const keyboardTest = run && typeof run.id === 'string' && run.id.length <= 100 &&
+      ['completed', 'interrupted'].includes(run.status) && Array.isArray(run.entries) && run.entries.length <= 201 &&
+      ['not-reviewed', 'pass', 'fail'].includes(run.assessment?.status) && run.assessment.runId === run.id &&
+      Number.isFinite(Date.parse(run.assessment.checkedAt)) && Number.isFinite(Date.parse(run.startedAt)) &&
+      run.entries.every(entry => Array.isArray(entry.target) && entry.target.length <= 30 &&
+        entry.target.every(part => typeof part === 'string' && part.length <= 4000 && /^(?:[a-z*]+:nth-child\(\d+\))(?: > [a-z*]+:nth-child\(\d+\))*$/.test(part)) &&
+        Array.isArray(entry.flags) && entry.flags.every(flag => ['document-boundary', 'frame-requires-separate-review', 'not-visibly-rendered', 'outside-viewport', 'center-may-be-covered', 'repeated-focus', 'no-obvious-focus-indicator'].includes(flag)))
+      ? { id: run.id, status: run.status, startedAt: run.startedAt, finishedAt: Number.isFinite(Date.parse(run.finishedAt)) ? run.finishedAt : undefined,
+          scannedAt: Number.isFinite(Date.parse(run.scannedAt)) ? run.scannedAt : undefined,
+          pageStateKey: /^[a-f0-9]{64}$/.test(run.pageStateKey || '') ? run.pageStateKey : undefined,
+          mode: 'tab-traversal', stepsPerDirection: Number.isSafeInteger(run.stepsPerDirection) ? Math.min(100, Math.max(1, run.stepsPerDirection)) : 20,
+          reason: ['step-limit-reached','stopped-by-user','frame-boundary','focus-left-document','driver-unavailable','driver-disconnected','debugger-canceled','page-navigated','browser-or-worker-restarted','time-limit','disabled-in-settings'].includes(run.reason) ? run.reason : 'driver-unavailable',
+          reviewRequired: true, limitations: ['Earlier recorded traversal only. Revalidate against the current page; complete keyboard interaction still requires human review.'],
+          repeatedFocus: (Array.isArray(run.repeatedFocus) ? run.repeatedFocus : []).filter(step => Number.isSafeInteger(step) && step >= 0 && step <= 200),
+          assessment: { status: run.assessment.status, checkedAt: run.assessment.checkedAt, runId: run.id },
+          entries: run.entries.map(entry => ({
+            target: entry.target, flags: entry.flags,
+            direction: ['forward', 'reverse', 'initial'].includes(entry.direction) ? entry.direction : 'initial',
+            key: ['Tab', 'Shift+Tab', 'Start'].includes(entry.key) ? entry.key : 'Start',
+            step: Number.isSafeInteger(entry.step) ? entry.step : 0,
+            elapsedMs: Number.isFinite(entry.elapsedMs) ? entry.elapsedMs : 0,
+            boundary: entry.boundary === true, documentFocused: entry.documentFocused === true,
+            rectangle: entry.rectangle ? Object.fromEntries(['x','y','width','height'].map(key => [key, Number.isFinite(entry.rectangle[key]) ? entry.rectangle[key] : 0])) : null,
+            indicator: entry.indicator ? { outlineStyle: ['none','solid','dotted','dashed','double','groove','ridge','inset','outset','auto'].includes(entry.indicator.outlineStyle) ? entry.indicator.outlineStyle : 'none', outlineWidth: Number.isFinite(entry.indicator.outlineWidth) ? entry.indicator.outlineWidth : 0, boxShadowPresent: entry.indicator.boxShadowPresent === true } : null
+          })) } : undefined;
+    return { checklist, keyboardTest };
   },
   async sitemap(site, update, clear = false) {
     const hash = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
