@@ -5,7 +5,7 @@ globalThis.accessLensSettings = {
     // Never return native messages: they can include local file paths.
     const codes = {
       FOLDER_PERMISSION: 'Folder access needs to be restored. Open Settings, click Restore folder access, then retry saving.',
-      NO_FOLDER: 'Choose a save folder in Settings before using auto save.',
+      NO_FOLDER: 'Choose a save folder in Settings before saving automatically or reading site reports.',
       INVALID_REPORT: 'The report format does not match this extension version. Replace the entire extension folder with the latest build, reload the extension, then refresh this webpage and scan again.',
       INVALID_FILENAME: 'The report filename is outdated. Reload the extension and webpage, then scan again.',
       QUEUE_FULL: 'The recovery queue is full (100 reports or 20 MB). Retry or delete queued reports in Settings. This report was not queued.',
@@ -16,7 +16,10 @@ globalThis.accessLensSettings = {
       NoModificationAllowedError: 'The report file is locked or read-only. Close applications using it, or choose another folder.',
       QuotaExceededError: 'There is not enough storage available. Free disk space or choose another folder.',
       InvalidStateError: 'The file is busy or unavailable. Close other writers and retry saving.',
-      AbortError: 'The save was interrupted. Retry saving.'
+      AbortError: 'The save was interrupted. Retry saving.',
+      NEWER_REPORT: 'A newer scan is already saved for this page. Scan the page again before saving; the newer file was not replaced.',
+      REPORT_CONFLICT: 'The saved file belongs to a different page or state. Check the report file before retrying; it was not replaced.',
+      INVALID_SAVED_REPORT: 'The saved JSON could not be read or validated. Repair the file or choose another folder before retrying; it was not replaced.'
     };
     const code = Object.hasOwn(codes, error?.code) ? error.code : Object.hasOwn(codes, error?.name) ? error.name : 'SAVE_FAILED';
     return { error: codes[code] || 'Could not save JSON. Restore folder access in Settings, then retry. If it still fails, choose another folder.', code };
@@ -82,6 +85,86 @@ globalThis.accessLensSettings = {
     const report = JSON.parse(await file.text());
     if (report?.schemaVersion !== '2.0' || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) throw this.failure('INVALID_REPORT');
     return this.reviewChoices(report);
+  },
+  async loadSiteReport(address) {
+    const site = new URL(address);
+    if (!['http:', 'https:'].includes(site.protocol)) throw this.failure('INVALID_REPORT');
+    const settings = await this.read();
+    if (!settings.directory) throw this.failure('NO_FOLDER');
+    if (await settings.directory.queryPermission({ mode: 'readwrite' }) !== 'granted') throw this.failure('FOLDER_PERMISSION');
+    const sources = { matchingFiles: 0, includedFiles: 0, otherSites: 0, invalid: 0, unreadable: 0, oversized: 0, bytesRead: 0, limitReached: false };
+    const records = [];
+    // Sequential reads bound memory and avoid overwhelming the browser's file API.
+    for await (const [filename, handle] of settings.directory.entries()) {
+      if (handle.kind !== 'file' || !/^access-lens-[a-f0-9]{64}(?: \(\d+\))?\.json$/.test(filename)) continue;
+      if (sources.matchingFiles >= 2000) { sources.limitReached = true; break; }
+      sources.matchingFiles++;
+      let file, text;
+      try {
+        file = await handle.getFile();
+        if (file.size > 20 * 1024 * 1024) { sources.oversized++; continue; }
+        if (sources.bytesRead + file.size > 100 * 1024 * 1024) { sources.limitReached = true; break; }
+        sources.bytesRead += file.size;
+        text = await file.text();
+      } catch { sources.unreadable++; continue; }
+      try {
+        const raw = JSON.parse(text);
+        if (new URL(raw.pagePath).origin !== site.origin) { sources.otherSites++; continue; }
+        const evidence = accessLensFeatures.reportEvidence(raw, filename);
+        records.push(evidence); sources.includedFiles++;
+      } catch { sources.invalid++; }
+    }
+    const siteFilename = await accessLensFilename(site.origin + '/', '', {});
+    const map = await this.sitemap(siteFilename.slice(12, -5));
+    const result = accessLensFeatures.savedSiteReport(records, site.origin, map, settings.staleDays, sources);
+    const pending = this.pending ? Object.values(await this.pending()) : [];
+    result.sources.queuedReports = pending.filter(entry => {
+      try { return new URL(entry.report.pagePath).origin === site.origin; } catch { return false; }
+    }).length;
+    if (result.sources.queuedReports) result.sources.partial = true;
+    return result;
+  },
+  async mergeSavedReview(report, file) {
+    let previous;
+    try {
+      const snapshot = await file.getFile();
+      // Empty files have no review evidence and can remain after a failed first
+      // write. Allow the recovery queue to complete those initial saves.
+      if (!snapshot.size) return report;
+      if (snapshot.size > 20 * 1024 * 1024) throw new Error('Oversized saved report');
+      previous = JSON.parse(await snapshot.text());
+      if (previous?.schemaVersion !== '2.0' || !['content-free','alternative-text-included'].includes(previous?.privacy?.mode) || !Number.isFinite(Date.parse(previous.scannedAt))) throw new Error('Invalid saved report');
+    } catch (error) {
+      if (error.name === 'NotFoundError') return report;
+      throw this.failure('INVALID_SAVED_REPORT');
+    }
+    if (previous.pagePath !== report.pagePath || previous.pageState?.key !== report.pageState?.key ||
+      previous.pageIdentity?.pageKey && report.pageIdentity?.pageKey && previous.pageIdentity.pageKey !== report.pageIdentity.pageKey) throw this.failure('REPORT_CONFLICT');
+    if (Date.parse(previous.scannedAt) > Date.parse(report.scannedAt)) throw this.failure('NEWER_REPORT');
+    // The file is reread immediately before writing, not only when the panel opens.
+    // Require dated, known decisions so externally edited files remain reviewable.
+    if (globalThis.accessLensWorkflow) {
+      let disk, incoming;
+      try {
+        const validate = value => {
+          for (const [id] of accessLensWorkflow.checklist) {
+            const check = value.manualChecks?.[id];
+            if (check && (!['not-tested','pass','fail','not-applicable'].includes(check.status) || !Number.isFinite(Date.parse(check.checkedAt)) || id.startsWith('scope-') && check.status === 'not-applicable')) throw new Error('Invalid decision');
+          }
+          return this.reviewChoices(value);
+        };
+        disk = validate(previous); incoming = validate(report);
+      } catch { throw this.failure('INVALID_SAVED_REPORT'); }
+      const checklist = { ...incoming.checklist };
+      for (const [id, check] of Object.entries(disk.checklist)) if (!checklist[id] || Date.parse(check.checkedAt) >= Date.parse(checklist[id].checkedAt)) checklist[id] = check;
+      report.manualChecks = checklist;
+      if (disk.keyboardTest) {
+        const current = report.keyboardTest;
+        if (!current || Date.parse(disk.keyboardTest.startedAt) > Date.parse(current.startedAt) ||
+          disk.keyboardTest.id === current.id && Date.parse(disk.keyboardTest.assessment.checkedAt) >= Date.parse(current.assessment?.checkedAt || 0)) report.keyboardTest = disk.keyboardTest;
+      }
+    }
+    return report;
   },
   reviewChoices(report) {
     const checklist = {};
@@ -240,7 +323,14 @@ globalThis.accessLensSettings = {
     if (!/^access-lens-[a-f0-9]{64}\.json$/.test(filename || '')) {
       throw this.failure('INVALID_FILENAME');
     }
-    const file = await settings.directory.getFileHandle(filename, { create: true });
+    let file;
+    try { file = await settings.directory.getFileHandle(filename); }
+    catch (error) {
+      if (error.name !== 'NotFoundError') throw error;
+      file = await settings.directory.getFileHandle(filename, { create: true });
+    }
+    await this.mergeSavedReview(report, file);
+    if (globalThis.accessLensWorkflow?.coverage) report.wcagCoverage = accessLensWorkflow.coverage(report, settings.staleDays);
     const stream = await file.createWritable();
     try {
       await stream.write(JSON.stringify(report, null, 2));

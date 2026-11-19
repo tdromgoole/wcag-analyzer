@@ -48,6 +48,8 @@
         try {
           const lastSaved = await this.read('saved-at:' + filename);
           if (Date.parse(lastSaved) > Date.parse(entry.report.scannedAt)) {
+            const hasNewDecisions = Object.values(entry.report.manualChecks || {}).some(check => Date.parse(check.checkedAt) >= Date.parse(lastSaved)) || Date.parse(entry.report.keyboardTest?.assessment?.checkedAt) >= Date.parse(lastSaved);
+            if (hasNewDecisions) return { ...this.saveError(this.failure('NEWER_REPORT')), queued: true };
             await this.mutate('pending-saves', queue => {
               const entries = queue?.entries || {};
               if (entries[filename]?.token === entry.token) delete entries[filename];
@@ -55,9 +57,16 @@
             });
             return { saved: true, superseded: true };
           }
+          const previousReview = JSON.stringify([entry.report.manualChecks, entry.report.keyboardTest]);
           const result = await this.save(entry.report, false, filename);
           if (!result.saved) throw this.failure('NO_FOLDER');
+          const mergedReview = previousReview !== JSON.stringify([entry.report.manualChecks, entry.report.keyboardTest]);
           if (entry.metadata?.site) {
+            if (globalThis.accessLensWorkflow?.coverage && entry.report.results) {
+              Object.assign(entry.metadata, await accessLensFeatures.scanMetadata(entry.report, policy.staleDays), {
+                manualFailures: Object.values(entry.report.manualChecks || {}).filter(check => check.status === 'fail').length + (entry.report.keyboardTest?.assessment?.status === 'fail' ? 1 : 0)
+              });
+            }
             await this.sitemap(entry.metadata.site, { ...entry.metadata, status: 'saved' });
             await this.saveSitemap(entry.metadata.site);
           }
@@ -67,7 +76,7 @@
             if (entries[filename]?.token === entry.token) delete entries[filename];
             return { entries };
           });
-          return { saved: true };
+          return { saved: true, ...(mergedReview ? { review: { checklist: entry.report.manualChecks || {}, keyboardTest: entry.report.keyboardTest } } : {}) };
         } catch (error) { return { ...this.saveError(error), queued: true }; }
       });
       locks.set(filename, operation);

@@ -41,7 +41,7 @@ globalThis.accessLensChecks = {
       ['horizontal-overflow','Content outside the viewport',['1.4.10']],
       ['text-clipping','Text in clipping containers',['1.4.4','1.4.10']],
       ['positive-tabindex','Positive tab order values',['2.4.3']],
-      ['video-captions','Video without a caption/subtitle track',['1.2.2']],
+      ['video-captions','Video without a captions track',['1.2.2']],
       ['autoplay-media','Autoplay media without native controls',['1.4.2','2.2.2']],
       ['input-purpose','Email/telephone fields without purpose metadata',['1.3.5']],
       ['long-animation','Long-running CSS animations',['2.2.2']]
@@ -64,7 +64,7 @@ globalThis.accessLensChecks = {
         if ((clip.horizontal || clip.vertical) && (text || el.textContent.trim())) add('text-clipping', el, { horizontal: clip.horizontal, vertical: clip.vertical, excessX: clip.excessX, excessY: clip.excessY });
       }
       if (el.tabIndex > 0 && !el.disabled && !el.closest('[inert]')) add('positive-tabindex', el, { tabIndex: el.tabIndex });
-      if (el.localName === 'video' && ![...el.querySelectorAll('track')].some(track => ['captions','subtitles'].includes(track.kind))) add('video-captions', el, { nativeControls: el.controls, muted: el.muted });
+      if (el.localName === 'video' && ![...el.querySelectorAll('track')].some(track => track.kind === 'captions')) add('video-captions', el, { nativeControls: el.controls, muted: el.muted });
       if (el.localName === 'input' && ['email','tel'].includes(el.type)) {
         const tokens = (el.getAttribute('autocomplete') || '').toLowerCase().split(/\s+/);
         const hasPurpose = tokens.some(token => el.type === 'email' ? token === 'email' : /^tel(?:-(?:country-code|national|area-code|local|local-prefix|local-suffix|extension))?$/.test(token));

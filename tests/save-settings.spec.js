@@ -36,9 +36,10 @@ test('preferences persist without reports; saves honor opt-in and folder permiss
     let written, filename, closed = false, writes = 0;
     settings = { autoSave: true, directory: {
       queryPermission: async () => 'granted',
-      getFileHandle: async name => {
+      getFileHandle: async (name, options) => {
+        if (!written && !options?.create) throw new DOMException('Missing', 'NotFoundError');
         filename = name; writes++;
-        return { createWritable: async () => ({ write: async data => { written = data; }, close: async () => { closed = true; } }) };
+        return { getFile: async () => new File(written ? [written] : [], name), createWritable: async () => ({ write: async data => { written = data; }, close: async () => { closed = true; } }) };
       }
     } };
     const saved = await accessLensSettings.save(report, true, reportFilename);

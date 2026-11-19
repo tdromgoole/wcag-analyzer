@@ -15,7 +15,7 @@ globalThis.accessLensInventory = () => {
   }
   function add(category,id,help,icon,el) {
     let group=groups[category].find(g=>g.id===id);
-    if(!group) {group={id,help,icon,description:'Informational page inventory. Presence alone does not indicate accessibility conformance.',tags:[],nodes:[]};groups[category].push(group);}
+    if(!group) {group={id,help,icon,description:'Informational page inventory. Presence alone does not indicate accessibility conformance.',tags:category === 'alerts' ? ['wcag2a', 'wcag111'] : [],nodes:[]};groups[category].push(group);}
     group.nodes.push({target:selector(el),html:el.outerHTML.slice(0,1500),text:(el.getAttribute('aria-label') || el.textContent || el.getAttribute('alt') || '').trim().slice(0,200),attributes:Object.fromEntries([...el.attributes].filter(a=>a.name.startsWith('aria-') || ['role','alt','lang','tabindex'].includes(a.name)).map(a=>[a.name,a.value]))});
   }
   function walk(scope) { for(const el of scope.querySelectorAll('*')) {
@@ -29,7 +29,6 @@ globalThis.accessLensInventory = () => {
     if (tag === 'img' && el.hasAttribute('alt')) {
       const alt = el.alt.trim();
       if (!alt) add('alerts', 'alt-empty', 'Empty alternative text: verify image is decorative', '!', el);
-      if (alt.length > 100) add('alerts', 'alt-long', 'Long alternative text: review for clarity', '!', el);
       if (/^(image|photo|picture|graphic|spacer)( of)?$|\.(png|jpe?g|gif|svg|webp)$/i.test(alt)) add('alerts', 'alt-suspicious', 'Suspicious alternative text: review description', '!', el);
       if (alt && [el.previousElementSibling, el.nextElementSibling].some(sibling => sibling?.textContent.trim().toLowerCase() === alt.toLowerCase())) add('alerts', 'alt-redundant', 'Alternative text repeats adjacent text', '!', el);
     }

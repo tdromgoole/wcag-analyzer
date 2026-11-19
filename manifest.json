@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Access Lens — WCAG Analyzer",
-  "version": "1.8.1",
+  "version": "1.12.0",
   "description": "Inspect page accessibility with visual markers and export a local JSON report.",
   "permissions": [
     "activeTab",
@@ -10,20 +10,18 @@
     "contextMenus",
     "debugger"
   ],
-  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "optional_host_permissions": [
+    "https://*/*",
+    "http://*/*"
+  ],
   "action": {
     "default_title": "Analyze accessibility"
   },
   "background": {
     "service_worker": "background.js"
   },
-  "options_ui": { "page": "options.html", "open_in_tab": true }
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  }
 }
-
-
-
-
-
-
-
-

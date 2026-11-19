@@ -1,4 +1,4 @@
-importScripts('save-settings.js', 'auto-mode.js', 'workflow.js', 'features.js', 'recovery.js', 'keyboard-background.js');
+importScripts('contrast-background.js', 'save-settings.js', 'export.js', 'auto-mode.js', 'workflow.js', 'features.js', 'recovery.js', 'keyboard-background.js');
 async function autoBadge(tabId, text, title, color) {
   if (!tabId) return;
   await Promise.allSettled([
@@ -57,7 +57,9 @@ async function handleAuto(message, sender) {
 }
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== chrome.runtime.id) return;
-  if (message.type === 'access-lens-keyboard-disable') {
+  if (message.type === 'access-lens-contrast-capture') {
+    accessLensContrastCapture(message, sender).then(image => respond({ image }), () => respond({ error: 'Could not capture this element. Keep this page active, click the extension toolbar button to restore site access, and retry.' }));
+  } else if (message.type === 'access-lens-keyboard-disable') {
     accessLensKeyboardDriver.end('disabled-in-settings').then(() => respond({ ok: true }), () => respond({ error: true }));
   } else if (message.type === 'access-lens-keyboard') {
     accessLensKeyboardDriver.handle(message, sender).then(respond, () => respond({ error: 'Keyboard testing was interrupted. Check Settings and try again.' }));
@@ -76,6 +78,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     })().then(respond, () => respond({ error: true }));
   } else if (message.type === 'access-lens-queue-retry') {
     recoverQueue(true).then(respond, () => respond({ error: true }));
+  } else if (message.type === 'access-lens-site-report') {
+    accessLensSettings.loadSiteReport(message.address || sender.url).then(respond, error => respond(accessLensSettings.saveError(error)));
   } else if (message.type === 'access-lens-save-sitemap') {
     accessLensSettings.saveSitemap(message.site).then(respond, error => respond(accessLensSettings.saveError(error)));
   } else if (message.type === 'access-lens-sitemap') {
@@ -100,7 +104,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
 });
 chrome.action.onClicked.addListener(async (tab) => {
   try {
-    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['vendor/axe.min.js', 'inspection.js', 'checks.js', 'export.js', 'workflow.js', 'features.js', 'keyboard.js', 'content.js'] });
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['vendor/axe.min.js', 'inspection.js', 'checks.js', 'export.js', 'workflow.js', 'features.js', 'contrast.js', 'keyboard.js', 'content.js'] });
     await chrome.action.setBadgeText({ tabId: tab.id, text: '' });
   } catch (error) {
     console.warn('Access Lens could not open on this page:', error);

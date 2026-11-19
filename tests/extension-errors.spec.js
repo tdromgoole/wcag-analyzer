@@ -6,7 +6,7 @@ const vm = require('node:vm');
 test('contrast measurements ignore visible inspector and shadow markers and restore them afterward', async ({ page }) => {
   await page.goto('http://127.0.0.1:4178');
   await page.setContent('<p style="margin:0;color:#222;background:#fff;font:16px Arial">Readable text</p>');
-  for (const file of [require.resolve('axe-core/axe.min.js'), path.resolve('features.js')]) await page.addScriptTag({ path: file });
+  for (const file of [require.resolve('axe-core/axe.min.js'), path.resolve('workflow.js'), path.resolve('features.js')]) await page.addScriptTag({ path: file });
   const result = await page.evaluate(async () => {
     const options = { runOnly: { type: 'rule', values: ['color-contrast'] } };
     const baseline = await accessLensFeatures.runAxe(document, options);
@@ -20,8 +20,8 @@ test('contrast measurements ignore visible inspector and shadow markers and rest
     const rescan = await accessLensFeatures.runAxe({ exclude: [host] }, options);
     return { coveredBefore, hiddenDuring, coveredAfter: document.elementFromPoint(15, 15) === host,
       display: host.style.getPropertyValue('display'), priority: host.style.getPropertyPriority('display'),
-      baseline: { violations: baseline.violations.length, incomplete: baseline.incomplete.length },
-      rescan: { violations: rescan.violations.length, incomplete: rescan.incomplete.length } };
+      baseline: { violations: baseline.violations.filter(rule => rule.id === 'color-contrast').length, incomplete: baseline.incomplete.filter(rule => rule.id === 'color-contrast').length },
+      rescan: { violations: rescan.violations.filter(rule => rule.id === 'color-contrast').length, incomplete: rescan.incomplete.filter(rule => rule.id === 'color-contrast').length } };
   });
   expect(result.coveredBefore && result.hiddenDuring && result.coveredAfter).toBe(true);
   expect(result.display).toBe('block'); expect(result.priority).toBe('important');
@@ -31,10 +31,11 @@ test('contrast measurements ignore visible inspector and shadow markers and rest
 
 test('failed scans restore the inspector without replacing changes made during scanning', async ({ page }) => {
   await page.goto('http://127.0.0.1:4178');
+  await page.addScriptTag({ path: path.resolve('workflow.js') });
   await page.addScriptTag({ path: path.resolve('features.js') });
   const result = await page.evaluate(async () => {
     const host = document.createElement('div'); host.id = 'access-lens-extension'; document.body.append(host);
-    window.axe = { run: async () => { throw new Error('Scan failed'); } };
+    window.axe = { getRules: () => [], run: async () => { throw new Error('Scan failed'); } };
     try { await accessLensFeatures.runAxe({}, {}); } catch { /* Expected. */ }
     const restored = !host.style.getPropertyValue('display') && getComputedStyle(host).display !== 'none';
     axe.run = async () => { host.style.setProperty('display', 'flex'); throw new Error('Scan failed'); };
@@ -72,7 +73,7 @@ test('concurrent menu refreshes serialize creation and consume callback errors',
 
 test('asset warnings become limited-scope diagnostics while other warnings and checks remain', async ({ page }) => {
   await page.goto('http://127.0.0.1:4178');
-  for (const file of ['features.js', 'export.js']) await page.addScriptTag({ path: path.resolve(file) });
+  for (const file of ['workflow.js', 'features.js', 'export.js']) await page.addScriptTag({ path: path.resolve(file) });
   const result = await page.evaluate(async () => {
     const original = console.warn, forwarded = [];
     console.warn = (...args) => forwarded.push(args[0]); const expected = console.warn;

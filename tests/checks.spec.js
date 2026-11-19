@@ -94,3 +94,11 @@ test('inspector exports supplemental evidence and revalidates human reviews afte
   expect(report.wcagCoverage.criteria.find(c => c.id === '1.4.12').status).toBe('needs-revalidation');
   expect(report.wcagCoverage.reviewComplete).toBe(false);
 });
+
+test('subtitles alone do not suppress captions review', async ({ page }) => {
+  await page.setContent('<video width="100" height="50"><track kind="subtitles"></video><video width="100" height="50"><track kind="captions"></video>');
+  const check = await page.evaluate(() => accessLensChecks.snapshot().checks.find(check => check.id === 'video-captions'));
+  expect(check.observations).toHaveLength(1);
+  expect(check.criteria).toEqual(['1.2.2']);
+  expect(check.reviewRequired).toBe(true);
+});

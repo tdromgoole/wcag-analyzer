@@ -12,7 +12,7 @@
     .actions{display:flex;gap:8px;padding:16px 18px 10px} button.primary{background:#255caa;color:white;border:0} .actions button{padding:9px 12px;border:1px solid #c7d0df;border-radius:7px;background:white;color:#233b5d;font-weight:650} button:disabled{opacity:.5;cursor:wait}
     .meta{padding:0 20px 12px;font-size:11px;color:#53647b;overflow-wrap:anywhere} .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 18px 14px} .stat{border:1px solid #d9e0e9;border-radius:8px;background:white;text-align:left;padding:10px;color:#31435d} .stat strong{font-size:25px;display:block} .stat[aria-pressed=true]{outline:2px solid #255caa} .stat[data-kind=violations] strong{color:#b42335}.stat[data-kind=incomplete] strong{color:#956100}.stat[data-kind=passes] strong{color:#257253}
     .toolbar{display:flex;justify-content:space-between;padding:12px 20px;border-block:1px solid #dce2eb;background:white} .toolbar label{display:flex;align-items:center;gap:7px} .results{overflow:auto;flex:1;padding:16px 18px} .rule{background:white;border:1px solid #dae1eb;border-radius:8px;margin-bottom:10px;padding:12px} summary{cursor:pointer;font-weight:650} .tag{display:inline-block;font-size:10px;padding:2px 6px;background:#edf1f7;border-radius:4px;margin:7px 4px 4px 0} .rule p{font-size:12px;color:#53647b} a{color:#19549e} .node{width:100%;text-align:left;border:1px solid #dce2eb;background:#f8faff;border-radius:5px;padding:8px;margin-top:6px;color:#243b5a;overflow-wrap:anywhere;font-size:12px} .node.selected{outline:2px solid #255caa} code{display:block;white-space:pre-wrap;font:11px/1.5 monospace;max-height:80px;overflow:auto;margin-top:6px} footer{padding:12px 18px;background:white;border-top:1px solid #dae1eb;font-size:11px;color:#596b82}.status{padding:16px;background:white;border-radius:8px} .marker{pointer-events:auto;position:absolute;width:27px;height:27px;border:2px solid white;border-radius:7px;background:#b42335;color:white;box-shadow:0 1px 6px #0006;font:bold 12px system-ui;transform:translate(-50%,-50%)} .marker.review{background:#946100}.highlight{position:absolute;border:3px solid #2465bd;background:#2465bd19;pointer-events:none;border-radius:3px}
-  </style><aside aria-label="Access Lens accessibility analyzer"><header><div class="top"><div><div class="eyebrow">Accessibility inspector</div><div class="brand">◉ Access Lens</div></div><button class="close" aria-label="Close analyzer">×</button></div><p>A clearer view of a more accessible web.</p></header><div class="actions"><button class="primary" id="scan">Scan page</button><button id="export" disabled>↓ Export JSON</button></div><div class="meta" id="meta"></div><div class="stats"></div><div class="toolbar"><strong id="viewTitle">Findings</strong><label><input id="markers" type="checkbox" checked> Page markers</label></div><div class="results" aria-live="polite"></div><footer>Automated checks are a starting point. Manual testing is required to evaluate WCAG conformance.</footer></aside><div id="overlay"></div>`;
+  </style><aside aria-label="Access Lens accessibility analyzer"><header><div class="top"><div><div class="eyebrow">Accessibility inspector</div><div class="brand">◉ Access Lens <span id="buildVersion" style="font-size:10px;font-weight:400">v1.12.0</span></div></div><button class="close" aria-label="Close analyzer">×</button></div><p>A clearer view of a more accessible web.</p></header><div class="actions"><button class="primary" id="scan">Scan page</button><button id="export" disabled>↓ Export JSON</button></div><div class="meta" id="meta"></div><div class="stats"></div><div class="toolbar"><strong id="viewTitle">Findings</strong><label><input id="markers" type="checkbox" checked> Page markers</label></div><div class="results" aria-live="polite"></div><footer>Automated checks are a starting point. Manual testing is required to evaluate WCAG conformance.</footer></aside><div id="overlay"></div>`;
   document.documentElement.append(host);
   const $ = (s) => root.querySelector(s);
   const collapse = document.createElement('button'); collapse.className = 'close'; collapse.textContent = '-'; collapse.setAttribute('aria-label', 'Collapse sidebar'); collapse.setAttribute('aria-expanded', 'true');
@@ -72,6 +72,19 @@
   const sessions = new Map();
   let scanPolicy = { staleDays: 7 }, manualAttempt;
   let sitemapContext, sitemapData = { nodes: {} }, sitemapError = '';
+  let savedSiteReportResult = null, siteReportLoading = false, siteReportError = '';
+  async function loadSavedSiteReport() {
+    siteReportLoading = true; siteReportError = ''; savedSiteReportResult = null;
+    if (!disposed && view === 'Site report') render();
+    try {
+      if (!extensionContext) throw new Error('Choose a save folder in the installed extension’s Settings to read site reports.');
+      const response = await accessLensFeatures.sendRuntime({ type: 'access-lens-site-report', address: location.origin });
+      if (response?.error) throw new Error(response.error);
+      if (response?.reportType !== 'site-review' || response.sitePath !== location.origin) throw new Error('Folder report unavailable. Choose a save folder in Settings, then refresh the report.');
+      savedSiteReportResult = response;
+    } catch (error) { siteReportError = error.message; }
+    finally { siteReportLoading = false; if (!disposed && view === 'Site report') render(); }
+  }
   async function refreshSitemap(record = false, clear = false) {
     try {
       sitemapContext = await accessLensWorkflow.sitemap();
@@ -127,7 +140,7 @@
   for(const name of ['Details','Reference','Order','Structure','Contrast','Changes','Manual','Keyboard test','Additional checks','Sitemap','Site report']) {
     const option = document.createElement('option'); option.value = name; option.textContent = name === 'Manual' ? 'WCAG coverage & manual' : name; viewSelect.append(option);
   }
-  viewSelect.onchange = async () => { view=viewSelect.value; selected=null; if(['Sitemap','Site report'].includes(view)) await refreshSitemap(); if(!disposed)render(); };
+  viewSelect.onchange = async () => { view=viewSelect.value; selected=null; if(['Sitemap','Site report'].includes(view)) await refreshSitemap(); if(!disposed) { if (view === 'Site report') await loadSavedSiteReport(); else render(); } };
   tabs.append(viewLabel, viewSelect);
   extraStyle.textContent += '.tabs{flex-wrap:wrap}.tabs button{flex:1 0 23%}.actions{flex-wrap:wrap}.manual-item{display:block;margin-bottom:16px}.manual-item select{display:block;margin:6px 0}';
   extraStyle.textContent += 'aside{overflow-y:auto}aside>*{flex-shrink:0}.results{flex:1 0 240px}.meta:empty{display:none}';
@@ -162,7 +175,7 @@
     cancelAnimationFrame(frame);
     frame = requestAnimationFrame(() => {
       const overlay = $('#overlay'); overlay.replaceChildren();
-      if (!report || !$('#markers').checked || keyboardController) return;
+      if (globalThis.__accessLensMeasuring || !report || !$('#markers').checked || keyboardController) return;
       if (view === 'Keyboard test' && keyboardPathVisible) drawKeyboardPath(overlay);
       const items = numberedItems().filter(({r}) => !hiddenGroups.has(r.id));
       const occupied = new Map();
@@ -170,7 +183,8 @@
         const el = resolve(n.target); if (!el) return;
         const b = el.getBoundingClientRect(); if (!b.width || !b.height || b.bottom < 0 || b.top > innerHeight) return;
         const cell=`${Math.round(b.left/30)}:${Math.round(b.top/30)}`, offset=occupied.get(cell)||0; occupied.set(cell,offset+1);
-        const marker = document.createElement('button'); marker.className = 'marker '+category+(category === 'incomplete' ? ' review' : ''); marker.textContent = r.icon || number; marker.title = r.help; marker.setAttribute('aria-label', `${number}: ${r.help}`); marker.style.left = `${Math.min(innerWidth - 16, Math.max(expand.hidden ? 395 : 16, b.left)+offset*29)}px`; marker.style.top = `${Math.max(16,b.top)}px`; marker.onclick = () => revealIssue(n); overlay.append(marker);
+        const markerCategory = view === 'Contrast' ? (report.results.incomplete.includes(r) ? 'incomplete' : 'violations') : category;
+        const marker = document.createElement('button'); marker.className = 'marker '+markerCategory+(markerCategory === 'incomplete' ? ' review' : ''); marker.textContent = r.icon || number; marker.title = r.help; marker.setAttribute('aria-label', `${number}: ${r.help}`); marker.style.left = `${Math.min(innerWidth - 16, Math.max(expand.hidden ? 395 : 16, b.left)+offset*29)}px`; marker.style.top = `${Math.max(16,b.top)}px`; marker.onclick = () => revealIssue(n); overlay.append(marker);
       });
       if (selected) { const el = resolve(selected.target); if(el) { const b=el.getBoundingClientRect(), box=document.createElement('div'); box.className='highlight'; Object.assign(box.style,{left:b.left+'px',top:b.top+'px',width:b.width+'px',height:b.height+'px'}); overlay.prepend(box); } }
     });
@@ -418,6 +432,57 @@
     }
     if (snapshot) { const limitations = document.createElement('p'); limitations.textContent = snapshot.limitations.join(' '); help.append(limitations); }
   }
+  async function continueContrastScan() {
+    if ($('#scan').disabled || contrastSampling || keyboardController || spacingController) return;
+    const controls = [$('#scan'),$('#export'),viewSelect,stateSlot], disabled = controls.map(control => control.disabled);
+    controls.forEach(control => { control.disabled = true; });
+    try {
+      const continuedAddress = location.href;
+      if (continuedAddress !== report.page.url) throw new Error('The page changed. Run Scan page before continuing.');
+      await accessLensFeatures.finishScan(report.results);
+      if (disposed || location.href !== continuedAddress) throw new Error('The page changed during continuation. Run Scan page again.');
+      report.summary = Object.fromEntries(Object.keys(labels).map(key => [key,{rules:report.results[key].length,elements:report.results[key].reduce((sum,rule)=>sum+rule.nodes.length,0)}]));
+      const refreshed = accessLensExport(report, location.href);
+      Object.assign(exportReport, { results:refreshed.results, summary:report.summary, scanPasses:refreshed.scanPasses, contrastAnalysis:refreshed.contrastAnalysis });
+      exportReport.wcagCoverage = accessLensWorkflow.coverage(exportReport,scanPolicy.staleDays);
+      currentBaseline = accessLensWorkflow.baseline(exportReport);
+      comparison = accessLensWorkflow.compare(activeSession?.baseline,currentBaseline); exportReport.comparison = comparison;
+      await refreshSitemap(true); await saveReport(true);
+    } catch(error) { workflowStatus.textContent = error.message || 'Could not continue contrast measurements.'; }
+    finally { controls.forEach((control,index) => { control.disabled = disabled[index]; }); if (!disposed) render(); }
+  }
+  let contrastSampling = false;
+  async function captureContrastElement(node) {
+    if (contrastSampling || $('#scan').disabled || keyboardController || spacingController) throw new Error('Wait for the current scan or test to finish.');
+    if (!globalThis.chrome?.runtime?.id) throw new Error('Open the installed extension to capture the page.');
+    const el = resolve(node.target);
+    if (!el?.isConnected || document.visibilityState !== 'visible' || visualViewport && visualViewport.scale !== 1) throw new Error('Keep the element visible without pinch zoom.');
+    const foreground = accessLensContrast.foreground(el);
+    contrastSampling = true;
+    const display = host.style.getPropertyValue('display'), priority = host.style.getPropertyPriority('display');
+    const address = location.href;
+    const controls = [$('#scan'), $('#export'), viewSelect, stateSlot];
+    const disabled = controls.map(control => control.disabled);
+    try {
+      controls.forEach(control => { control.disabled = true; });
+      host.style.setProperty('display', 'none', 'important');
+      el.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+      await new Promise(resolve => setTimeout(resolve, 150));
+      if (disposed || !el.isConnected || document.visibilityState !== 'visible') throw new Error('The page changed. Reopen the inspector and retry.');
+      const box = el.getBoundingClientRect(), viewport = { width: innerWidth, height: innerHeight };
+      const rect = { x: box.x, y: box.y, width: box.width, height: box.height };
+      if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > innerWidth || rect.y + rect.height > innerHeight || !rect.width || !rect.height) throw new Error('The complete element must be visible. Scroll it into view and retry.');
+      const response = await accessLensFeatures.sendRuntime({ type: 'access-lens-contrast-capture', rect, viewport });
+      const after = el.getBoundingClientRect();
+      if (disposed || !el.isConnected || location.href !== address || innerWidth !== viewport.width || innerHeight !== viewport.height || ['x', 'y', 'width', 'height'].some(key => Math.abs(after[key] - rect[key]) > .5) || JSON.stringify(accessLensContrast.foreground(el)) !== JSON.stringify(foreground)) throw new Error('The page moved or changed during capture. Retry.');
+      if (response?.error || !response?.image) throw new Error(response?.error || 'Screenshot capture unavailable. Click the extension toolbar button and retry.');
+      return { image: response.image, foreground };
+    } finally {
+      contrastSampling = false;
+      if (display) host.style.setProperty('display', display, priority); else host.style.removeProperty('display');
+      controls.forEach((control, index) => { control.disabled = disabled[index]; });
+    }
+  }
   function render() {
     if (!report) return;
     const categories={violations:'Issues',incomplete:'Needs review',features:'Features',alerts:'Alerts',structure:'Structure',aria:'ARIA',passes:'Passed checks'};
@@ -426,11 +491,56 @@
     viewSelect.value = view;
     $('#viewTitle').textContent = view==='Details' ? categories[category] : view;
     const results = $('.results'); results.replaceChildren();
+    if (['Details','Contrast','Reference'].includes(view) && report.results.accessLensScanPasses) {
+      const passes = report.results.accessLensScanPasses;
+      const summary = document.createElement('p'); summary.id = 'scanPassSummary'; summary.className = 'inspection-note';
+      summary.textContent = 'Pass 1 — axe: ' + passes.first.elements.incomplete + ' inconclusive element check(s). Pass 2 — Access Lens: ' + passes.second.passed + ' passed; ' + passes.second.failed + ' failed; ' + passes.second.unresolved + ' unresolved (' + passes.second.unsupported + ' without a supported automatic measurement). Missing automated coverage still requires criterion review.'; results.append(summary);
+      if (report.results.incomplete.some(rule => rule.id === 'color-contrast' && rule.nodes.some(node => ['off-screen','limit-reached'].includes(node.secondPass?.reason)))) { const button=document.createElement('button'); button.id='continueContrast'; button.textContent='Continue contrast measurements'; button.onclick=continueContrastScan; results.append(button); }
+    }
     if (view === 'Keyboard test') { renderKeyboard(results); position(); return; }
     if (view === 'Additional checks') { renderAdditional(results); position(); return; }
     if (view === 'Site report') {
+      const folderNote = document.createElement('p'); folderNote.textContent = 'Choose your scan folder in Settings. This report reads saved JSON for the current site. Refresh after AI fixes, rescans, or manual edits to the files.'; results.append(folderNote);
+      const refresh = document.createElement('button'); refresh.id = 'refreshSiteReport'; refresh.textContent = siteReportLoading ? 'Reading saved reports…' : 'Refresh report from folder'; refresh.disabled = siteReportLoading;
+      refresh.onclick = loadSavedSiteReport; results.append(refresh);
+      if (siteReportError) { const error = document.createElement('p'); error.id = 'siteReportError'; error.setAttribute('role', 'status'); error.textContent = siteReportError; results.append(error); }
+      if (savedSiteReportResult) {
+        const saved = savedSiteReportResult, summary = saved.summary;
+        const notice = document.createElement('p'); notice.id = 'savedSiteReportSummary'; notice.setAttribute('role', 'status');
+        notice.textContent = `${saved.sources.partial ? 'Partial report. ' : ''}${summary.pages} saved pages · ${summary.states} states · ${summary.knownUnscannedPages} known pages without saved reports. Recorded evidence only; this does not establish WCAG conformance.`; results.append(notice);
+        const evidence = document.createElement('p'); evidence.textContent = `Automated: ${summary.pagesWithAutomatedIssues} pages with issues; ${summary.pagesWithNoDetectedViolations} with no detected violations or incomplete checks. Manual: ${summary.pagesWithManualFailures} pages with failures. ${summary.pagesWithReviewGaps} pages have review gaps; ${summary.recordedReviewComplete} have recorded review complete. ${summary.staleStates} stale states; ${summary.limitedStates} limited states.`; results.append(evidence);
+        const files = document.createElement('p'); files.textContent = `Files: ${saved.sources.includedFiles} included; ${saved.sources.duplicateSnapshots} older/duplicate snapshots; ${saved.sources.otherSites} for other sites; ${saved.sources.invalid} invalid; ${saved.sources.unreadable} unreadable; ${saved.sources.oversized} oversized. ${saved.sources.queuedReports || 0} reports queued locally and not included from the queue.${saved.sources.limitReached ? ' Read limit reached; some files were not processed.' : ''}`; results.append(files);
+        const changes = document.createElement('p'); changes.textContent = `${summary.noLongerDetected} previous issue occurrences no longer detected in the latest comparisons. Verify fixes; disappearance is not proof of a fix.`; results.append(changes);
+        for (const [label, type, extension, data] of [
+          ['Export site report JSON', 'application/json', 'json', () => JSON.stringify(saved, null, 2)],
+          ['Export site report HTML', 'text/html', 'html', () => accessLensFeatures.siteReportHTML(saved)]
+        ]) {
+          const button = document.createElement('button'); button.textContent = label;
+          button.onclick = () => { const url = URL.createObjectURL(new Blob([data()], { type })); const link = document.createElement('a'); link.href = url; link.download = `access-lens-site-${sitemapContext.site}.${extension}`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 10000); };
+          results.append(button);
+        }
+        for (const rule of saved.rules) {
+          const card = document.createElement('section'); card.className = 'rule';
+          const title = document.createElement('h3'); title.textContent = `${rule.id}: ${rule.pages.length} page(s), ${rule.occurrences} occurrence(s)`;
+          const fix = document.createElement('p'); fix.textContent = accessLensWorkflow.guidance(rule.id).fix; card.append(title, fix); results.append(card);
+        }
+        const shared = document.createElement('p'); shared.textContent = `${saved.possibleSharedFixes.length} repeated rule/locator pattern(s) suggest possible shared fixes.`; results.append(shared);
+        for (const page of saved.pages) {
+          const card = document.createElement('details'); card.className = 'rule';
+          const title = document.createElement('summary'); title.textContent = `${new URL(page.pagePath).pathname} · ${page.status} · ${page.states.length} state(s)`; card.append(title);
+          for (const state of page.states) {
+            const p = document.createElement('p'); p.textContent = `State ${state.filename.slice(12, 24)} · ${state.scannedAt}: ${state.automated.violations} automated issues, ${state.automated.needsReview} checks needing review. Manual: ${state.manual.pass} pass, ${state.manual.fail} fail, ${state.manual.notApplicable} not applicable, ${state.manual.notTested} not tested, ${state.manual.needsRevalidation} need revalidation.${state.keyboard ? ' Keyboard assessment: ' + state.keyboard.reviewStatus + '.' : ''}${state.stale ? ' Stale scan.' : ''}${state.limited ? ' Limited scope.' : ''}`; card.append(p);
+            const decisions = document.createElement('ul');
+            for (const [id, check] of Object.entries(state.manualChecks)) { const item = document.createElement('li'); item.textContent = `${id}: ${check.status} · reviewed ${check.checkedAt}${state.manualReview[id]?.needsRevalidation ? ' · needs revalidation' : ''}`; decisions.append(item); } card.append(decisions);
+          }
+          results.append(card);
+        }
+        if (saved.knownUnscannedPages.length) { const heading = document.createElement('p'); heading.textContent = 'Known pages without saved reports:'; const list = document.createElement('ul'); for (const page of saved.knownUnscannedPages) { const item = document.createElement('li'); item.textContent = page.path || page.id; list.append(item); } results.append(heading, list); }
+        position(); return;
+      }
+      const localHistory = document.createElement('p'); localHistory.textContent = 'Local scan history only: the folder report has not been loaded. The summary and JSON below use browser history.'; results.append(localHistory);
       const summary = accessLensFeatures.siteReport(sitemapData, scanPolicy.staleDays);
-      const p = document.createElement('p'); p.textContent = 'Recorded pages and states only. Repeated structural patterns suggest possible shared fixes; they do not prove a shared component.';
+      const p = document.createElement('p'); p.textContent = 'Local scan history only; the folder report has not been loaded. Recorded pages and states only. Repeated structural patterns suggest possible shared fixes; they do not prove a shared component.';
       const help = document.createElement('details'); help.className = 'view-help'; const helpTitle = document.createElement('summary'); helpTitle.textContent = 'About this report'; help.append(helpTitle, p); results.append(help);
       const coverage = document.createElement('p'); coverage.textContent = `${summary.coverage.scanned} of ${summary.coverage.discovered} discovered pages scanned; ${summary.coverage.failed} failed, ${summary.coverage.queued} queued, ${summary.coverage.stale} stale, ${summary.coverage.limited} with limited scope.`; results.append(coverage);
       const exportButton = document.createElement('button'); exportButton.textContent = 'Export site report JSON';
@@ -592,6 +702,14 @@
       position(); return;
     }
     if(['features','structure','aria'].includes(category) || ['Order','Structure'].includes(view)) { const note=document.createElement('p');note.className='inspection-note';note.textContent=view==='Order'?'Estimated sequential keyboard order (positive tabindex first, then document order). Shadow DOM, browser behavior, and custom widgets require manual verification.':'Informational element inventory. Counts describe page elements, not passed accessibility checks.';results.append(note); }
+    if (view === 'Contrast') {
+      const count = bucket => report.results[bucket].filter(rule => rule.id === 'color-contrast').reduce((sum, rule) => sum + rule.nodes.length, 0);
+      const summary = document.createElement('p'); summary.id = 'contrastSummary';
+      summary.textContent = count('violations') + ' text contrast failure(s); ' + count('incomplete') + ' need manual review; ' + count('passes') + ' passed text check(s). These are element checks, not complete contrast coverage. Normal text requires 4.5:1; qualifying large text requires 3:1. Review gradients/images, placeholders, hover/focus states, and non-text contrast (1.4.11) separately. No detected failures does not mean all contrast passes.';
+      const automatic = report.results.accessLensContrastAnalysis;
+      if (automatic) summary.textContent += ' Automatic background analysis: ' + automatic.status + '; ' + automatic.resolved + ' resolved from ' + automatic.candidates + ' supported candidate(s). Page traversal: ' + (automatic.pageSweep || 'not recorded') + '; ' + (automatic.viewports || 0) + ' viewport(s). Keep this tab active and invoke the extension toolbar button if capture is unavailable.';
+      results.append(summary);
+    }
     const numbers = new Map(numberedItems().map(({n,number}) => [n,number]));
     for(const rule of currentRules()) {
       if(rule.icon && view!=='Reference') {
@@ -599,17 +717,75 @@
         const label=document.createElement('label');label.className='group-toggle';const toggle=document.createElement('input');toggle.type='checkbox';toggle.checked=!hiddenGroups.has(rule.id);toggle.onchange=()=>{toggle.checked?hiddenGroups.delete(rule.id):hiddenGroups.add(rule.id);position();};label.append(toggle,document.createTextNode(`${rule.nodes.length} ${rule.help}`));card.append(label);
         const icons=document.createElement('div');icons.className='icons';rule.nodes.forEach((node,i)=>{const b=document.createElement('button');b.className='icon';b._node=node;b.textContent=view==='Order'?i+1:rule.icon;b.title=`${rule.help}: ${node.text || node.target.join(' → ')}`;b.setAttribute('aria-label',`${rule.help}, element ${i+1}: ${node.text || node.target.join(' → ')}`);b.onclick=()=>inspect(node);icons.append(b);});card.append(icons);results.append(card);continue;
       }
+      const needsReview = report.results.incomplete.includes(rule);
+      const reviewContrast = needsReview && rule.id === 'color-contrast';
+      const reviewTitle = reviewContrast ? 'Contrast measurement gaps — no failure confirmed' : needsReview && rule.id==='link-in-text-block' ? 'Link identification review — no failure confirmed' : rule.help;
       const card = document.createElement('details'); card.className='rule';
-      card.innerHTML=`<summary>${escape(rule.help)} <span>(${rule.nodes.length})</span></summary><span class="tag">${escape(rule.impact || 'info')}</span>${rule.tags.filter(t=>t.startsWith('wcag')).map(t=>`<span class="tag">${escape(t)}</span>`).join('')}<p>${escape(rule.description)}</p>${rule.helpUrl ? `<a href="${escape(rule.helpUrl)}" target="_blank" rel="noopener noreferrer">Rule reference ↗</a>` : ""}`;
+      card.innerHTML=`<summary>${escape(reviewTitle)} <span>(${rule.nodes.length})</span></summary><span class="tag">${escape(rule.impact || 'info')}</span>${rule.tags.filter(t=>t.startsWith('wcag')).map(t=>`<span class="tag">${escape(t)}</span>`).join('')}<p>${escape(rule.description)}</p>${rule.helpUrl ? `<a href="${escape(rule.helpUrl)}" target="_blank" rel="noopener noreferrer">Rule reference ↗</a>` : ""}`;
+      if (view === 'Contrast' || needsReview) {
+        const status = document.createElement('strong'); status.className = 'contrast-status';
+        status.textContent = needsReview ? 'Measurement incomplete — no failure confirmed' : 'Detected failure';
+        card.prepend(status); if (view === 'Contrast') card.open = true;
+      }
       if (!rule.icon) {
         const guidance = accessLensWorkflow.guidance(rule.id);
         const help = document.createElement('section'); help.className = 'fix-guidance';
-        const title = document.createElement('strong'); title.textContent = 'Suggested fix and verification'; help.append(title);
-        const fix = document.createElement('p'); fix.textContent = guidance.fix; help.append(fix);
-        if (guidance.example) { const code = document.createElement('code'); code.textContent = guidance.example; help.append(code); }
-        const verify = document.createElement('p'); verify.textContent = guidance.verify; help.append(verify); card.append(help);
+        const title = document.createElement('strong'); title.textContent = needsReview ? 'Review guidance and verification' : 'Suggested fix and verification'; help.append(title);
+        const fix = document.createElement('p'); fix.textContent = reviewContrast ? 'This entry is a measurement gap, not a detected contrast failure. Continue unfinished measurements or inspect the specific second-pass reason below.' : guidance.fix; help.append(fix);
+        if (guidance.example && !reviewContrast) { const code = document.createElement('code'); code.textContent = guidance.example; help.append(code); }
+        const verify = document.createElement('p'); verify.textContent = reviewContrast ? 'Unsupported effects or text regions remain unresolved; they are not automatically failed or passed.' : guidance.verify; help.append(verify); card.append(help);
       }
-      for(const node of rule.nodes) { const button=document.createElement('button'); button.className='node'; button._node=node; button.innerHTML=`<strong class="issue-number">#${numbers.get(node)}</strong> ${escape(node.target.join(' → '))}<code>${escape(node.html)}</code>${node.failureSummary ? `<p>${escape(node.failureSummary)}</p>` : ''}`; button.onclick=()=>inspect(node); card.append(button); }
+      for(const node of rule.nodes) {
+        const explanation = needsReview ? [...node.any, ...node.all, ...node.none].map(check => accessLensFeatures.contrastEvidence(check).reason || check.message).filter(Boolean).join(' ') : node.failureSummary;
+        const button=document.createElement('button'); button.className='node'; button._node=node; button.innerHTML=`<strong class="issue-number">#${numbers.get(node)}</strong> ${escape(node.target.join(' → '))}<code>${escape(node.html)}</code>${explanation ? `<p>${escape(explanation)}</p>` : ''}`; button.onclick=()=>inspect(node); card.append(button);
+        if (rule.id === 'color-contrast') {
+          const debugPanel = document.createElement('details'); debugPanel.className = 'contrast-debug';
+          const title = document.createElement('summary'); title.textContent = 'Contrast debug'; debugPanel.append(title);
+          const note = document.createElement('p'); note.textContent = 'CSS text color is used, so glyph antialiasing is not sampled as foreground. DOM text is hidden during background capture; text baked into images remains. Regions cover line rectangles, not exact glyph shapes. Region-edge proximity does not prove antialiasing. Only fully contained device pixels are sampled. Genuine pixels inside the region are not ignored; thresholds are unchanged.'; debugPanel.append(note);
+          for (const check of [...node.any, ...node.all, ...node.none].filter(check => check.id === 'color-contrast')) {
+            const debug = accessLensFeatures.contrastDebug(check);
+            const data = debug || { source: 'axe-core', measurements: accessLensFeatures.contrastEvidence(check).measurements, secondPass: node.secondPass?.reason || 'not-required', pixelDiagnostics: 'No Access Lens background pixels were measured for this result.' };
+            const code = document.createElement('pre'); code.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px'; code.textContent = JSON.stringify(data,null,2); debugPanel.append(code);
+            if (debug && check.accessLensDebugPreview?.startsWith('data:image/png;base64,')) { const preview = document.createElement('img'); preview.className = 'contrast-debug-preview'; preview.src = check.accessLensDebugPreview; preview.alt = 'Background-only capture with worst sampled colors marked in magenta; CSS text was hidden.'; preview.style.cssText = 'max-width:100%;height:auto;image-rendering:pixelated'; debugPanel.append(preview); }
+            if (debug) { const stats = document.createElement('p'); stats.textContent = debug.belowThresholdPixels + ' / ' + debug.sampledPixels + ' pixels below threshold (' + (debug.sampledPixels ? 100 * debug.belowThresholdPixels / debug.sampledPixels : 0).toFixed(3) + '%). ' + debug.edgeBandBelowThresholdPixels + ' in the 2 CSS px region-edge band; ' + debug.interiorBelowThresholdPixels + ' in the interior.'; title.after(stats); }
+          }
+          card.append(debugPanel);
+        }
+        const textRuns = [...node.any,...node.all,...node.none].find(check=>check.data?.textRunSummary)?.data.textRunSummary;
+        if (textRuns) { const runs=document.createElement('p'); runs.className='text-run-summary'; runs.textContent='Nested text: '+textRuns.passed+' passed, '+textRuns.failed+' failed, '+textRuns.unresolved+' unresolved across '+textRuns.total+' run(s). Pixel diagnostics describe a representative run.'; card.append(runs); }
+        const linkEvidence=[...node.any,...node.all,...node.none].find(check=>check.data?.linkDistinction)?.data.linkDistinction;
+        if(linkEvidence){const evidence=document.createElement('p');evidence.className='link-distinction';evidence.textContent='Link identification: '+linkEvidence.method+'. '+linkEvidence.staticTextStyles+' surrounding non-link text style(s).'+(linkEvidence.minimumLinkToTextRatio!==undefined?' Link versus surrounding text: '+linkEvidence.minimumLinkToTextRatio.toFixed(3)+':1 (color-only technique uses 3:1; hover/focus cues remain unverified).':'')+' This result does not pass the separate text/background contrast criterion.';card.append(evidence);}
+        if (node.secondPass) {
+          const provenance = document.createElement('p'); provenance.className = 'second-pass-result';
+          provenance.textContent = 'Pass 1: axe inconclusive. Pass 2: Access Lens — ' + node.secondPass.status + '. ' + accessLensFeatures.reviewReason(node.secondPass.reason); card.append(provenance);
+        }
+        if (needsReview && rule.id === 'color-contrast' && globalThis.accessLensContrast) {
+          const sampleButton = document.createElement('button'); sampleButton.type = 'button'; sampleButton.className = 'sample-contrast'; sampleButton.textContent = 'Sample rendered background';
+          const samplePanel = document.createElement('section'); samplePanel.className = 'contrast-sampler';
+          const previous = [...node.any, ...node.all, ...node.none].find(check => check.renderedSample)?.renderedSample;
+          if (previous) { const result = document.createElement('p'); result.textContent = 'Previous sampled ratio ' + previous.contrastRatio.toFixed(3) + ':1; required ' + previous.expectedContrastRatio + ':1. Manual review still required.'; samplePanel.append(result); }
+          sampleButton.onclick = async () => {
+            sampleButton.disabled = true;
+            const scanSnapshot = exportReport;
+            await accessLensContrast.show(samplePanel, () => captureContrastElement(node), async sample => {
+              if (disposed || exportReport !== scanSnapshot) throw new Error('This scan changed. Sample the current result again.');
+              for (const check of [...node.any, ...node.all, ...node.none].filter(check => check.id === 'color-contrast')) { if (sample) check.renderedSample = sample; else delete check.renderedSample; }
+              const exportedNode = exportReport.results.incomplete.find(result => result.id === rule.id)?.nodes[rule.nodes.indexOf(node)];
+              if (exportedNode) for (const check of [...exportedNode.any, ...exportedNode.all, ...exportedNode.none].filter(check => check.id === 'color-contrast')) { if (sample) check.renderedSample = sample; else delete check.renderedSample; }
+              saveStatus.textContent = 'Contrast sample updated; export JSON to retain it. Manual review remains required.';
+              await saveReport(true, true);
+            });
+            if (!disposed) sampleButton.disabled = false;
+          };
+          card.append(sampleButton, samplePanel);
+        }
+        if (view === 'Contrast') for (const check of [...node.any, ...node.all, ...node.none].filter(check => check.id === 'color-contrast')) {
+          const evidence = accessLensFeatures.contrastEvidence(check), measured = evidence.measurements;
+          const details = document.createElement('p'); details.className = 'contrast-measurement';
+          details.textContent = (measured.contrastRatio ? 'Measured ' + measured.contrastRatio + ':1. ' : 'Contrast ratio unavailable. ') + (measured.expectedContrastRatio ? 'Required ' + measured.expectedContrastRatio + ':1. ' : '') + (measured.fgColor ? 'Foreground ' + measured.fgColor + '. ' : '') + (measured.bgColor ? 'Background ' + measured.bgColor + '. ' : '') + (evidence.reason || check.message || '');
+          card.append(details);
+        }
+      }
       results.append(card);
     }
     if(!results.children.length) results.innerHTML='<div class="status">No checks in this category.</div>';
@@ -639,16 +815,17 @@
       globalThis.__accessLensScanLock = true;
       const scanStarted = Date.now();
       let results;
-      try { results=await accessLensFeatures.runAxe({exclude:[host]}, {runOnly:{type:'tag',values:['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice']},iframes:false}); }
+      try { results=await accessLensFeatures.runAxe({exclude:[host]}); }
       finally { globalThis.__accessLensScanLock = false; }
       if (location.href !== scannedAddress) throw new Error('The page changed during scanning. Scan the current page again.');
       if(disposed) return;
-      report={schemaVersion:'1.1',tool:{name:'Access Lens',version:'1.8.1',engine:results.testEngine},page:{url:location.href,title:document.title},scannedAt:results.timestamp,scope:{description:'Rendered top-level document, including supported open shadow roots. Embedded frames excluded. Informational inventories also include hidden elements; keyboard order is estimated.',standard:'WCAG 2.2 A/AA and axe best practices',limitations:['Automated checks do not establish WCAG conformance.','Scan again after changing page content.','Embedded frames and closed shadow roots are not analyzed.']},summary:Object.fromEntries(Object.keys(labels).map(k=>[k,{rules:results[k].length,elements:results[k].reduce((s,r)=>s+r.nodes.length,0)}])),inventory:globalThis.accessLensInventory(),results};
+      report={schemaVersion:'1.1',tool:{name:'Access Lens',version: '1.12.0',engine:results.testEngine},page:{url:location.href,title:document.title},scannedAt:results.timestamp,scope:{description:'Rendered top-level document, including supported open shadow roots. Embedded frames excluded. Informational inventories also include hidden elements; keyboard order is estimated.',standard:'WCAG 2.2 Level A/AA',limitations:['Automated checks do not establish WCAG conformance.','Scan again after changing page content.','Embedded frames and closed shadow roots are not analyzed.']},summary:Object.fromEntries(Object.keys(labels).map(k=>[k,{rules:results[k].length,elements:results[k].reduce((s,r)=>s+r.nodes.length,0)}])),inventory:globalThis.accessLensInventory(),results};
       exportReport=globalThis.accessLensExport(report, scannedAddress);
       exportReport.completeness.durationMs = Date.now() - scanStarted;
       exportReport.pageState = await accessLensWorkflow.state(stateSlot.value);
       manualAttempt.state = exportReport.pageState.key;
       exportFilename=await globalThis.accessLensFilename(scannedAddress, exportReport.pageState.key);
+      exportReport.pageIdentity.pageKey = (await accessLensFilename(scannedAddress)).slice(12, -5);
       currentBaseline = accessLensWorkflow.baseline(exportReport);
       activeSession = sessions.get(exportFilename);
       workflowStatus.textContent = '';
@@ -708,6 +885,13 @@
         : automatic ? { skipped: true } : { download: true };
       if (disposed) return;
       if (!response) throw new Error();
+      if (response.review && snapshot === exportReport && filename === exportFilename) {
+        for (const [id, check] of Object.entries(response.review.checklist || {})) if (!activeSession.checklist[id] || Date.parse(check.checkedAt) >= Date.parse(activeSession.checklist[id].checkedAt)) activeSession.checklist[id] = check;
+        snapshot.manualChecks = activeSession.checklist;
+        if (response.review.keyboardTest && (!snapshot.keyboardTest || Date.parse(response.review.keyboardTest.startedAt) >= Date.parse(snapshot.keyboardTest.startedAt))) snapshot.keyboardTest = response.review.keyboardTest;
+        snapshot.wcagCoverage = accessLensWorkflow.coverage(snapshot, scanPolicy.staleDays);
+        if (view === 'Manual' || view === 'Keyboard test') render();
+      }
       if (response.queued) {
         saveStatus.textContent = `JSON queued locally for retry. ${response.error || 'Restore folder access in Settings.'}`;
         retry.hidden = false;

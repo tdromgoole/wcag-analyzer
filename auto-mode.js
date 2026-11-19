@@ -1,5 +1,5 @@
 globalThis.accessLensAutoMode = {
-  files: ['vendor/axe.min.js', 'inspection.js', 'checks.js', 'export.js', 'workflow.js', 'features.js', 'auto-scan.js'],
+  files: ['vendor/axe.min.js', 'inspection.js', 'checks.js', 'export.js', 'workflow.js', 'features.js', 'contrast.js', 'auto-scan.js'],
   pattern(address) {
     const url = new URL(address);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Enter an http or https website address.');

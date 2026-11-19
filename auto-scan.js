@@ -99,18 +99,19 @@
       const scanStarted = Date.now(), settledBeforeScan = scanStarted - changed >= 750;
       let results;
       try {
-        results = await accessLensFeatures.runAxe({ exclude: ['#access-lens-extension'] }, { runOnly: { type: 'tag', values: ['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa','best-practice'] }, iframes: false });
+        results = await accessLensFeatures.runAxe({ exclude: ['#access-lens-extension'] });
       } finally { globalThis.__accessLensScanLock = false; }
       if (stopped || location.href !== scannedAddress || (await accessLensWorkflow.state()).key !== state.key) {
         await send({ type: 'access-lens-auto-attempt', address: scannedAddress, sitemap: attemptCache, status: 'interrupted' }); schedule(); return;
       }
       const raw = {
-        tool: { name: 'Access Lens', version: '1.8.1', engine: results.testEngine }, scannedAt: results.timestamp,
+        tool: { name: 'Access Lens', version: '1.12.0', engine: results.testEngine }, scannedAt: results.timestamp,
         scope: { description: 'Automatic browsing scan of the top-level document and supported open shadow roots.', limitations: ['Automated checks do not establish WCAG conformance.', 'Embedded frames and closed shadow roots are excluded.', 'Very brief visits and late-loading content may not be captured.'] },
         summary: Object.fromEntries(['violations','incomplete','passes','inapplicable'].map(key => [key, { rules: results[key].length, elements: results[key].reduce((sum, rule) => sum + rule.nodes.length, 0) }])),
         inventory: accessLensInventory(), results
       };
       const report = accessLensExport(raw, scannedAddress); report.pageState = state;
+      report.pageIdentity.pageKey = (await accessLensFilename(scannedAddress)).slice(12, -5);
       report.completeness.durationMs = Date.now() - scanStarted;
       report.completeness.domSettledBeforeScan = settledBeforeScan;
       report.completeness.domChangedDuringScan = changed > scanStarted;

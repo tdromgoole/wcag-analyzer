@@ -93,9 +93,35 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
   }
   function check(c) {
     const data = {};
+    if (c.id === 'link-in-text-block') {
+      const raw=c.data?.linkDistinction, evidence={};
+      if(raw && ['isolated-link-context','persistent-underline','unverified-link-cue'].includes(raw.method)) { evidence.method=raw.method; evidence.contextType=['li','p','nav','td','th','h1','h2','h3','h4','h5','h6'].includes(raw.contextType)?raw.contextType:'block'; evidence.staticTextStyles=Number.isInteger(raw.staticTextStyles)&&raw.staticTextStyles>=0?Math.min(raw.staticTextStyles,200):0; evidence.limited=raw.limited===true; evidence.hoverFocusVerified=false; if(typeof raw.minimumLinkToTextRatio==='number'&&Number.isFinite(raw.minimumLinkToTextRatio)) { evidence.minimumLinkToTextRatio=raw.minimumLinkToTextRatio; evidence.requiredLinkToTextRatio=3; } }
+      return { id:c.id,impact:c.impact,measurements:{},...(evidence.method?{linkDistinction:evidence}:{}) };
+    }
     // No arbitrary strings, nested objects, relatedNodes, or check messages.
     for (const key of ['contrastRatio', 'fontSize', 'fontWeight', 'expectedContrastRatio']) {
       if (typeof c.data?.[key] === 'number' && Number.isFinite(c.data[key])) data[key] = c.data[key];
+    }
+    if (c.id === 'color-contrast' && globalThis.accessLensFeatures?.contrastEvidence) {
+      const evidence = accessLensFeatures.contrastEvidence(c);
+      delete data.contrastRatio;
+      delete data.expectedContrastRatio;
+      Object.assign(data, evidence.measurements);
+      const debug = accessLensFeatures.contrastDebug(c);
+      const debugField = debug ? { contrastDebug: debug } : {};
+      const reasonKeys = new Set(['bgImage','bgGradient','pseudoContent','bgOverlap','elmPartiallyObscuring','outsideViewport','equalRatio','emptyValue','elmPartiallyObscured','imgNode','fgOnShadowColor','shadowOnBgColor']);
+      const originalCode = c.data?.originalReviewCode ?? c.data?.messageKey;
+      if (reasonKeys.has(originalCode)) debugField.engineReviewCode = originalCode; else if (typeof originalCode === 'string') debugField.engineReviewCode = 'other';
+      const occlusion=c.data?.occlusion;
+      if (occlusion && Number.isInteger(occlusion.region) && occlusion.region >= 0 && ['none','descendant','ancestor','unrelated'].includes(occlusion.relation)) debugField.occlusion = { region:occlusion.region, relation:occlusion.relation, blockerTag:['div','span','a','p','section','header','footer','nav','iframe','button','img','body','html'].includes(occlusion.blockerTag) ? occlusion.blockerTag : 'other' };
+      const runs = c.data?.textRunSummary;
+      if (runs && ['total','passed','failed','unresolved'].every(key => Number.isInteger(runs[key]) && runs[key] >= 0 && runs[key] <= 80)) debugField.textRunSummary = { total:runs.total, passed:runs.passed, failed:runs.failed, unresolved:runs.unresolved, limited:runs.limited === true };
+      if (debugField.textRunSummary && runs.unresolvedReasons) debugField.textRunSummary.unresolvedReasons = Object.fromEntries(Object.entries(runs.unresolvedReasons).filter(([reason,count]) => accessLensFeatures.secondPassReasons[reason] && Number.isInteger(count) && count >= 0 && count <= 80));
+      const automatic = c.data?.automaticBackground;
+      if (automatic?.method === 'rendered-background-with-text-temporarily-hidden' && ['minimumContrastRatio','maximumContrastRatio','sampledPixels'].every(key => typeof automatic[key] === 'number' && Number.isFinite(automatic[key]))) {
+        return { id: c.id, impact: c.impact, measurements: data, ...debugField, automaticBackground: { method: automatic.method, minimumContrastRatio: automatic.minimumContrastRatio, maximumContrastRatio: automatic.maximumContrastRatio, sampledPixels: automatic.sampledPixels, ...(Number.isInteger(automatic.textRegions) && automatic.textRegions > 0 ? { textRegions: automatic.textRegions } : {}) } };
+      }
+      return { id: c.id, impact: c.impact, measurements: data, ...debugField, reviewReason: evidence.reason };
     }
     return { id: c.id, impact: c.impact, measurements: data };
   }
@@ -108,6 +134,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
         help: reference?.help, description: reference?.description, tags: reference?.tags,
         guidance: globalThis.accessLensWorkflow?.guidance(rule.id),
         nodes: rule.nodes.map(node => ({ ...element(node), impact: node.impact,
+          ...(node.secondPass ? { secondPass: { engine: 'Access Lens', initialEngine: 'axe-core', initialStatus: 'incomplete', status: ['pass','fail'].includes(node.secondPass.status) ? node.secondPass.status : 'unresolved', attempted: node.secondPass.attempted === true, reason: globalThis.accessLensFeatures?.secondPassReasons[node.secondPass.reason] ? node.secondPass.reason : 'unsupported-check', explanation: globalThis.accessLensFeatures?.reviewReason(node.secondPass.reason) } } : {}),
           any: node.any.map(check), all: node.all.map(check), none: node.none.map(check) }))
       };
     });
@@ -117,6 +144,8 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
     privacy: { mode: 'alternative-text-included', alternativeTextIncluded: true, structuralLocatorsOnly: true, pagePathIncluded: true, queryAndFragmentIncluded: false },
     tool: report.tool, scannedAt: report.scannedAt, scope: report.scope, summary: report.summary,
     completeness,
+    ...(report.results.accessLensContrastAnalysis ? { contrastAnalysis: { status: report.results.accessLensContrastAnalysis.status, candidates: report.results.accessLensContrastAnalysis.candidates, resolved: report.results.accessLensContrastAnalysis.resolved, viewports: report.results.accessLensContrastAnalysis.viewports || 0, pageSweep: report.results.accessLensContrastAnalysis.pageSweep, interrupted: report.results.accessLensContrastAnalysis.interrupted === true } } : {}),
+    ...(report.results.accessLensScanPasses ? { scanPasses: structuredClone(report.results.accessLensScanPasses) } : {}),
     ...(globalThis.accessLensChecks ? { supplementalChecks: accessLensChecks.snapshot() } : {}),
     pageIdentity: { queryKeysUsed: (globalThis.accessLensIdentity?.queryKeys || []).length, hashRouteUsed: Boolean(globalThis.accessLensIdentity?.hashRoutes), routeValuesExported: false },
     inventory: Object.fromEntries(Object.entries(report.inventory).map(([category, groups]) => [category,

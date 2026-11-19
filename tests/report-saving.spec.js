@@ -12,7 +12,10 @@ test('current exported reports pass queue and folder validation with alternative
     const read = accessLensSettings.read.bind(accessLensSettings);
     const directory = {
       queryPermission: async () => 'granted',
-      getFileHandle: async () => ({ createWritable: async () => ({ write: async data => { written = JSON.parse(data); }, close: async () => {} }) })
+      getFileHandle: async (name, options) => {
+        if (!written && !options?.create) throw new DOMException('Missing', 'NotFoundError');
+        return { getFile: async () => new File(written ? [JSON.stringify(written)] : [], name), createWritable: async () => ({ write: async data => { written = JSON.parse(data); }, close: async () => {} }) };
+      }
     };
     accessLensSettings.read = key => key ? read(key) : Promise.resolve({ directory, autoSave: true });
     const saved = await accessLensSettings.saveRecoverable(report, true, filename);
@@ -73,10 +76,11 @@ test('autosave refreshes the sitemap and retries both files when sitemap writing
     const read = accessLensSettings.read.bind(accessLensSettings);
     const directory = {
       queryPermission: async () => 'granted',
-      getFileHandle: async name => {
+      getFileHandle: async (name, options) => {
         names.push(name);
         if (name === 'sitemap.json' && failSitemap) throw Object.assign(new Error(), { name: 'NoModificationAllowedError' });
-        return { createWritable: async () => ({ write: async data => { files[name] = JSON.parse(data); }, close: async () => {} }) };
+        if (name !== 'sitemap.json' && !files[name] && !options?.create) throw new DOMException('Missing', 'NotFoundError');
+        return { getFile: async () => new File(files[name] ? [JSON.stringify(files[name])] : [], name), createWritable: async () => ({ write: async data => { files[name] = JSON.parse(data); }, close: async () => {} }) };
       }
     };
     let autoSave = false;
