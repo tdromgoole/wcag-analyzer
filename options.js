@@ -1,6 +1,26 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   let settings;
+  $('#archiveEvidence').onclick = async () => {
+    const button = $('#archiveEvidence'); button.disabled = true;
+    try {
+      const result = await accessLensSettings.archiveSnapshots();
+      $('#evidenceStatus').textContent = `${result.archived} snapshot(s) archived and verified. ${result.remaining} remain locally staged. Archived files were retained in the selected folder.`;
+    } catch (error) { $('#evidenceStatus').textContent = accessLensSettings.saveError(error).error; }
+    finally { button.disabled = false; }
+  };
+  $('#exportEvidence').onclick = async () => {
+    try {
+      const snapshots = Object.values(await accessLensSettings.retainedSnapshots());
+      if (!snapshots.length) { $('#evidenceStatus').textContent = 'No preserved snapshots are available.'; return; }
+      const bundle = { schemaVersion: '1.0', reportType: 'preserved-evidence', generatedAt: new Date().toISOString(), snapshots };
+      const url = URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: 'application/json' }));
+      const link = document.createElement('a'); link.href = url; link.download = 'access-lens-preserved-evidence.json';
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      $('#evidenceStatus').textContent = `Download requested for ${snapshots.length} preserved snapshot(s). Local evidence was retained. Confirm the download before relying on it.`;
+    } catch { $('#evidenceStatus').textContent = 'Could not export preserved evidence. Existing snapshots were retained.'; }
+  };
   async function keyboardPermission() {
     const allowed = await globalThis.chrome?.permissions?.contains({ permissions: ['debugger'] });
     const enabled = (await accessLensSettings.read()).keyboardTestingEnabled;

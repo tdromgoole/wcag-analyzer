@@ -341,7 +341,7 @@ globalThis.accessLensFeatures = {
   // content, alternative text, arbitrary HTML, or cached coverage claims.
   reportEvidence(report, filename) {
     const match = /^(access-lens-([a-f0-9]{64}))(?: \(\d+\))?\.json$/.exec(filename);
-    if (!match || report?.schemaVersion !== '2.0' || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode) || !Number.isFinite(Date.parse(report.scannedAt))) throw new Error('Invalid saved report');
+    if (!match || !['2.0', '2.1'].includes(report?.schemaVersion) || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode) || !Number.isFinite(Date.parse(report.scannedAt))) throw new Error('Invalid saved report');
     const address = new URL(report.pagePath);
     if (!['http:', 'https:'].includes(address.protocol) || address.username || address.password) throw new Error('Invalid page address');
     address.search = ''; address.hash = '';

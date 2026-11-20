@@ -8,7 +8,7 @@ input,textarea,select{font:inherit;box-sizing:border-box}input[type=text],input[
 <button id="choose">Choose folder…</button><button id="reset">Use browser downloads</button>
 <button id="restore" disabled>Restore folder access</button><p id="permission" role="status"></p>
 <label><input id="autoSave" type="checkbox" disabled> Automatically save after each successful scan</label>
-<p>Auto save includes the scan when you open the inspector and each rescan. Each saved scan also replaces sitemap.json with that site's latest map. Choose a folder to enable it. Scan JSON can include image alternative text.</p>
+<p>Auto save includes the scan when you open the inspector and each rescan. Each saved scan also replaces sitemap.json with that site's latest map. Choose a folder to enable it. New scan JSON omits image alternative text. Older saved files and queued reports may still contain it.</p>
 <p>Folder access may need to be granted again after a browser restart. If saving fails, the inspector will show a message.</p>
 <h2>Automatic browsing scans</h2>
 <p>Scan and save pages as you browse, without opening the inspector. Enable separately for each website. A save folder with write access is required. Browser site access is requested only when you enable this mode.</p>
@@ -27,6 +27,12 @@ input,textarea,select{font:inherit;box-sizing:border-box}input[type=text],input[
 <button id="savePolicy">Save scan controls</button>
 <h2>Save recovery queue</h2>
 <p>Failed saves retain content-free JSON locally, including pagePath. The latest report for each filename is kept, up to 100 reports or 20 MB. Automatic retries run about once a minute when not paused.</p>
+<p>Folder-save submissions also preserve distinct evidence snapshots locally, independently of the latest-report queue and Remember history. This preservation store is limited to 100 snapshots or 20 MB and stops accepting new snapshots visibly when full. Deleting queued reports does not delete preserved evidence.</p>
+<button id="exportEvidence">Export preserved evidence JSON</button>
+<button id="archiveEvidence">Archive preserved evidence to selected folder</button>
+<p>Archiving writes immutable snapshots under access-lens-history in the selected folder, verifies each saved copy, then releases its local staging space. Archived files are retained. Existing conflicting files are never replaced. After archiving, the JSON export above includes only snapshots still staged locally.</p>
+<p>Exports all locally preserved snapshots without deleting them. Legacy snapshots may contain image alternative text. Save the download securely; a download request does not confirm archival completion.</p>
+<p id="evidenceStatus" role="status"></p>
 <button id="retryQueue">Retry queued saves</button><button id="deleteQueue">Delete all queued reports</button>
 <p id="queueStatus" role="status"></p><ul id="queueList"></ul>
 <h2>Automated keyboard testing</h2>

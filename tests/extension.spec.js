@@ -43,13 +43,13 @@ test('scan, locate findings, export JSON, rescan and close', async ({page}) => {
   let data=''; for await (const chunk of stream) data+=chunk;
   const report=JSON.parse(data);
   expect(report.results.violations.some(r=>r.id==='image-alt')).toBe(true);
-  expect(report.schemaVersion).toBe('2.0');
+  expect(report.schemaVersion).toBe('2.1');
   expect(data).not.toContain('PRIVATE_');
   expect(report.pagePath).toBe('http://127.0.0.1:4178/');
   expect(Object.keys(report).slice(0, 2)).toEqual(['schemaVersion', 'pagePath']);
   expect(download.suggestedFilename()).not.toContain('127.0.0.1');
   expect(report.page).toBeUndefined();
-  expect(report.privacy.mode).toBe('alternative-text-included');
+  expect(report.privacy.mode).toBe('content-free');
   function verifyFields(value) {
     if (!value || typeof value !== 'object') return;
     for (const [key, child] of Object.entries(value)) {
@@ -76,7 +76,7 @@ test('scan, locate findings, export JSON, rescan and close', async ({page}) => {
   await expect(ui.locator('.results')).not.toContainText('alternative text');
   const altDownload = page.waitForEvent('download'); await ui.locator('#export').click();
   let altJson = ''; for await (const chunk of await (await altDownload).createReadStream()) altJson += chunk;
-  expect(JSON.parse(altJson).inventory.features.flatMap(group => group.nodes).some(node => node.alternativeText === 'Descriptive test image')).toBe(true);
+  expect(JSON.parse(altJson).inventory.features.flatMap(group => group.nodes).some(node => node.alternativeText === 'Descriptive test image')).toBe(false);
 
   await ui.getByRole('button', { name: 'Collapse sidebar', exact: true }).click();
   await expect(ui.locator('aside')).toBeHidden();

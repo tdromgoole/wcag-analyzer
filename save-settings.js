@@ -9,6 +9,9 @@ globalThis.accessLensSettings = {
       INVALID_REPORT: 'The report format does not match this extension version. Replace the entire extension folder with the latest build, reload the extension, then refresh this webpage and scan again.',
       INVALID_FILENAME: 'The report filename is outdated. Reload the extension and webpage, then scan again.',
       QUEUE_FULL: 'The recovery queue is full (100 reports or 20 MB). Retry or delete queued reports in Settings. This report was not queued.',
+      HISTORY_FULL: 'Local evidence preservation is full (100 snapshots or 20 MB). This report was not queued. Open Settings and archive preserved evidence to the selected folder, then retry the save.',
+      HISTORY_CONFLICT: 'An evidence archive could not be verified or conflicts with its snapshot identifier. Local evidence was retained. Check the archive before retrying; conflicting files were not replaced.',
+      HISTORY_UNAVAILABLE: 'Evidence preservation is unavailable. Reload the extension and webpage before saving; the existing report was not replaced.',
       PENDING_SAVES: 'Some reports remain queued. Restore folder access and check the recovery queue in Settings.',
       NotAllowedError: 'The browser denied folder access. Open Settings and restore access or choose the folder again.',
       SecurityError: 'The browser blocked folder access. Open Settings and choose an allowed folder.',
@@ -83,7 +86,7 @@ globalThis.accessLensSettings = {
     // A saved report is data, never executable content or a source of UI markup.
     if (file.size > 20 * 1024 * 1024) throw this.failure('INVALID_REPORT');
     const report = JSON.parse(await file.text());
-    if (report?.schemaVersion !== '2.0' || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) throw this.failure('INVALID_REPORT');
+    if (!['2.0', '2.1'].includes(report?.schemaVersion) || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) throw this.failure('INVALID_REPORT');
     return this.reviewChoices(report);
   },
   async loadSiteReport(address) {
@@ -124,7 +127,7 @@ globalThis.accessLensSettings = {
     if (result.sources.queuedReports) result.sources.partial = true;
     return result;
   },
-  async mergeSavedReview(report, file) {
+  async mergeSavedReview(report, file, preservePrevious) {
     let previous;
     try {
       const snapshot = await file.getFile();
@@ -133,7 +136,7 @@ globalThis.accessLensSettings = {
       if (!snapshot.size) return report;
       if (snapshot.size > 20 * 1024 * 1024) throw new Error('Oversized saved report');
       previous = JSON.parse(await snapshot.text());
-      if (previous?.schemaVersion !== '2.0' || !['content-free','alternative-text-included'].includes(previous?.privacy?.mode) || !Number.isFinite(Date.parse(previous.scannedAt))) throw new Error('Invalid saved report');
+      if (!['2.0', '2.1'].includes(previous?.schemaVersion) || !['content-free','alternative-text-included'].includes(previous?.privacy?.mode) || !Number.isFinite(Date.parse(previous.scannedAt))) throw new Error('Invalid saved report');
     } catch (error) {
       if (error.name === 'NotFoundError') return report;
       throw this.failure('INVALID_SAVED_REPORT');
@@ -164,6 +167,7 @@ globalThis.accessLensSettings = {
           disk.keyboardTest.id === current.id && Date.parse(disk.keyboardTest.assessment.checkedAt) >= Date.parse(current.assessment?.checkedAt || 0)) report.keyboardTest = disk.keyboardTest;
       }
     }
+    if (preservePrevious) await preservePrevious(previous);
     return report;
   },
   reviewChoices(report) {
@@ -316,7 +320,7 @@ globalThis.accessLensSettings = {
     if (await settings.directory.queryPermission({ mode: 'readwrite' }) !== 'granted') {
       throw this.failure('FOLDER_PERMISSION');
     }
-    if (report?.schemaVersion !== '2.0' || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) {
+    if (!['2.0', '2.1'].includes(report?.schemaVersion) || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) {
       throw this.failure('INVALID_REPORT');
     }
     // Only a hashed page identifier is accepted, never a caller-provided path.
@@ -329,8 +333,11 @@ globalThis.accessLensSettings = {
       if (error.name !== 'NotFoundError') throw error;
       file = await settings.directory.getFileHandle(filename, { create: true });
     }
-    await this.mergeSavedReview(report, file);
+    if (!this.retainSnapshot) throw this.failure('HISTORY_UNAVAILABLE');
+    await this.retainSnapshot(report, filename);
+    await this.mergeSavedReview(report, file, previous => this.retainSnapshot(previous, filename));
     if (globalThis.accessLensWorkflow?.coverage) report.wcagCoverage = accessLensWorkflow.coverage(report, settings.staleDays);
+    await this.retainSnapshot(report, filename);
     const stream = await file.createWritable();
     try {
       await stream.write(JSON.stringify(report, null, 2));

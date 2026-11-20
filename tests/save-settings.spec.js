@@ -24,6 +24,7 @@ test('page filenames stay stable across rescans and distinguish sites and paths'
 test('preferences persist without reports; saves honor opt-in and folder permissions', async ({ page }) => {
   await page.goto('http://127.0.0.1:4178');
   await page.addScriptTag({ path: path.resolve('save-settings.js') });
+  await page.addScriptTag({ path: path.resolve('recovery.js') });
   const result = await page.evaluate(async () => {
     await accessLensSettings.write({ autoSave: true });
     const stored = await accessLensSettings.read();
@@ -126,7 +127,7 @@ test('inspector sends content-free reports for auto and manual saves and reports
   const messages = await page.evaluate(() => saveMessages.filter(message => message.type === 'access-lens-save'));
   expect(messages.map(message => message.automatic)).toEqual([true, false]);
   for (const message of messages) {
-    expect(message.report.privacy.mode).toBe('alternative-text-included');
+    expect(message.report.privacy.mode).toBe('content-free');
     expect(JSON.stringify(message.report)).not.toContain('Test page');
     expect(message.report.page).toBeUndefined();
   }

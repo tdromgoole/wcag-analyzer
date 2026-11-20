@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 const path = require('node:path');
-test('current exported reports pass queue and folder validation with alternative text', async ({ page }) => {
+test('current content-free reports omit alternative text through queue and folder saves', async ({ page }) => {
   await page.goto('http://127.0.0.1:4178');
   for (const name of [require.resolve('axe-core/axe.min.js'), ...['save-settings.js', 'features.js', 'recovery.js', 'inspection.js', 'export.js'].map(name => path.resolve(name))]) await page.addScriptTag({ path: name });
   const result = await page.evaluate(async () => {
@@ -26,8 +26,12 @@ test('current exported reports pass queue and folder validation with alternative
     return { saved, written, pending: await accessLensSettings.pending(), rejected, filenameError };
   });
   expect(result.saved).toEqual({ saved: true });
-  expect(result.written.privacy.mode).toBe('alternative-text-included');
-  expect(result.written.inventory.features.flatMap(group => group.nodes).some(node => node.alternativeText === 'Example description')).toBe(true);
+  expect(result.written.privacy.mode).toBe('content-free');
+  expect(result.written.schemaVersion).toBe('2.1');
+  expect(result.written.privacy.alternativeTextIncluded).toBe(false);
+  expect(JSON.stringify(result.written)).not.toContain('Example description');
+  expect(JSON.stringify(result.written)).not.toContain('"alternativeText":');
+  expect(result.written.inventory.features.flatMap(group => group.nodes).some(node => node.alternativeText === 'Example description')).toBe(false);
   expect(result.pending).toEqual({});
   expect(result.rejected).toBe(true);
   expect(result.filenameError).toBe('INVALID_FILENAME');

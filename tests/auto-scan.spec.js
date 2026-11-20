@@ -24,7 +24,7 @@ test('browsing scans save without a panel on page loads, SPA routes, and state c
   await expect.poll(() => page.evaluate(() => savedScans.length)).toBe(1);
   await expect(page.locator('#access-lens-extension')).toHaveCount(0);
   const initial = await page.evaluate(() => savedScans[0]);
-  expect(initial.report.privacy.mode).toBe('alternative-text-included');
+  expect(initial.report.privacy.mode).toBe('content-free');
   expect(initial.report.supplementalChecks.checks).toHaveLength(7);
   expect(JSON.stringify(initial)).not.toContain('Test page');
   expect(initial.report.page).toBeUndefined();

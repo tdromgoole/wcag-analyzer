@@ -18,6 +18,77 @@
       } finally { db.close(); }
     },
     async pending() { return (await this.read('pending-saves')).entries || {}; },
+    // Preserve distinct submissions independently of the mutable current queue.
+    async retainedSnapshots() { return (await this.read('evidence-snapshots')).entries || {}; },
+    async snapshotIdentity(report, filename) {
+      if (!/^access-lens-[a-f0-9]{64}\.json$/.test(filename || '') || !['2.0', '2.1'].includes(report?.schemaVersion) || !['content-free', 'alternative-text-included'].includes(report?.privacy?.mode)) throw this.failure('INVALID_REPORT');
+      const canonical = value => Array.isArray(value) ? value.map(canonical)
+        : value && typeof value === 'object' ? Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])) : value;
+      const snapshot = JSON.parse(JSON.stringify(report));
+      const serialized = JSON.stringify(canonical({ filename, report: snapshot }));
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(serialized));
+      const id = [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+      const bytes = new TextEncoder().encode(serialized).byteLength;
+      return { snapshot, serialized, id, bytes };
+    },
+    async retainSnapshot(report, filename) {
+      const { snapshot, id, bytes } = await this.snapshotIdentity(report, filename);
+      await this.mutate('evidence-snapshots', previous => {
+        const entries = previous?.entries || {};
+        if (entries[id]) return { entries };
+        if (Object.keys(entries).length >= 100 || Object.values(entries).reduce((sum, entry) => sum + entry.bytes, bytes) > 20 * 1024 * 1024) throw this.failure('HISTORY_FULL');
+        entries[id] = { id, filename, report: snapshot, bytes, recordedAt: new Date().toISOString() };
+        return { entries };
+      });
+      return id;
+    },
+    async archiveSnapshots() {
+      // Web Locks serialize Settings tabs in this extension origin. They do not
+      // lock another developer's browser or applications editing these files.
+      return navigator.locks.request('access-lens-evidence-archive', async () => {
+        const settings = await this.read();
+        if (!settings.directory) throw this.failure('NO_FOLDER');
+        if (await settings.directory.queryPermission({ mode: 'readwrite' }) !== 'granted') throw this.failure('FOLDER_PERMISSION');
+        const directory = await settings.directory.getDirectoryHandle('access-lens-history', { create: true });
+        let archived = 0;
+        for (const [id, entry] of Object.entries(await this.retainedSnapshots())) {
+          const identity = await this.snapshotIdentity(entry.report, entry.filename);
+          if (identity.id !== id || entry.id !== id) throw this.failure('HISTORY_CONFLICT');
+          const name = `snapshot-${id}.json`;
+          const payload = { schemaVersion: '1.0', reportType: 'preserved-snapshot', id, filename: entry.filename, recordedAt: entry.recordedAt, report: entry.report };
+          let file;
+          try { file = await directory.getFileHandle(name); }
+          catch (error) {
+            if (error.name !== 'NotFoundError') throw error;
+            file = await directory.getFileHandle(name, { create: true });
+          }
+          const verify = async () => {
+            const existing = await file.getFile();
+            if (!existing.size) return false; // Interrupted first writes can leave an empty file.
+            if (existing.size > 25 * 1024 * 1024) throw this.failure('HISTORY_CONFLICT');
+            let saved;
+            try { saved = JSON.parse(await existing.text()); } catch { throw this.failure('HISTORY_CONFLICT'); }
+            if (saved.schemaVersion !== '1.0' || saved.reportType !== 'preserved-snapshot' || saved.id !== id || saved.filename !== entry.filename || (await this.snapshotIdentity(saved.report, saved.filename)).id !== id) throw this.failure('HISTORY_CONFLICT');
+            return true;
+          };
+          if (!await verify()) {
+            const stream = await file.createWritable();
+            try { await stream.write(JSON.stringify(payload)); await stream.close(); }
+            catch (error) { await stream.abort().catch(() => {}); throw error; }
+          }
+          if (!await verify()) throw this.failure('HISTORY_CONFLICT');
+          // Release only the local staging copy after read-back verification.
+          // The immutable folder file is retained; this is not evidence cleanup.
+          await this.mutate('evidence-snapshots', previous => {
+            const entries = previous?.entries || {};
+            if (JSON.stringify(entries[id]) === JSON.stringify(entry)) delete entries[id];
+            return { entries };
+          });
+          archived++;
+        }
+        return { archived, remaining: Object.keys(await this.retainedSnapshots()).length };
+      });
+    },
     async deletePending(filename) {
       await this.mutate('pending-saves', queue => {
         const entries = queue?.entries || {};
@@ -26,8 +97,9 @@
       });
     },
     async enqueue(report, filename, metadata) {
-      if (!['content-free', 'alternative-text-included'].includes(report?.privacy?.mode) || report.schemaVersion !== '2.0') throw this.failure('INVALID_REPORT');
+      if (!['content-free', 'alternative-text-included'].includes(report?.privacy?.mode) || !['2.0', '2.1'].includes(report.schemaVersion)) throw this.failure('INVALID_REPORT');
       if (!/^access-lens-[a-f0-9]{64}\.json$/.test(filename || '')) throw this.failure('INVALID_FILENAME');
+      await this.retainSnapshot(report, filename);
       const entry = { token: crypto.randomUUID(), report, metadata, at: new Date().toISOString(), bytes: JSON.stringify({ report, metadata }).length * 2 };
       await this.mutate('pending-saves', queue => {
         const entries = queue?.entries || {}, existing = entries[filename];

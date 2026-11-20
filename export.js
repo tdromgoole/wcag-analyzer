@@ -82,7 +82,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
       labelReferencePresent: el.hasAttribute('aria-labelledby'),
       descriptionReferencePresent: el.hasAttribute('aria-describedby'),
       altPresent: el.hasAttribute('alt'),
-      ...(el.hasAttribute('alt') ? { alternativeText: el.getAttribute('alt') } : {}), states
+      states
       , role: role || null,
       relationships: { parent: el.parentElement ? structural(el.parentElement) : [],
         labels: [...(el.labels || [])].map(structural),
@@ -140,8 +140,8 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
     });
   }
   const exported = {
-    schemaVersion: '2.0', pagePath: page.href,
-    privacy: { mode: 'alternative-text-included', alternativeTextIncluded: true, structuralLocatorsOnly: true, pagePathIncluded: true, queryAndFragmentIncluded: false },
+    schemaVersion: '2.1', pagePath: page.href,
+    privacy: { mode: 'content-free', alternativeTextIncluded: false, structuralLocatorsOnly: true, pagePathIncluded: true, queryAndFragmentIncluded: false },
     tool: report.tool, scannedAt: report.scannedAt, scope: report.scope, summary: report.summary,
     completeness,
     ...(report.results.accessLensContrastAnalysis ? { contrastAnalysis: { status: report.results.accessLensContrastAnalysis.status, candidates: report.results.accessLensContrastAnalysis.candidates, resolved: report.results.accessLensContrastAnalysis.resolved, viewports: report.results.accessLensContrastAnalysis.viewports || 0, pageSweep: report.results.accessLensContrastAnalysis.pageSweep, interrupted: report.results.accessLensContrastAnalysis.interrupted === true } } : {}),
