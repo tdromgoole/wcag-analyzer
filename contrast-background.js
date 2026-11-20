@@ -1,4 +1,5 @@
-// Captures only in response to the inspector's explicit sample action.
+// Transient local pixels for contrast measurement; screenshots are not exported
+// or written to evidence storage. Caller/tab checks apply to every capture.
 globalThis.accessLensContrastCapture = async (message, sender) => {
   if (sender.id !== chrome.runtime.id || sender.frameId !== 0 || !sender.tab?.id || !Number.isInteger(sender.tab.windowId) || !/^https?:/.test(sender.url || '')) throw new Error('Open the inspector on a regular website.');
   const { rect, viewport } = message;

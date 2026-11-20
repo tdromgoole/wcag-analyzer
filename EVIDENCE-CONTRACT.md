@@ -1,13 +1,15 @@
 # Accessibility Evidence Contract
 
 **Date:** November 19, 2026  
-**State:** Current scan contract documented; history extension is a design specification pending implementation. Full URL paths are approved; query strings, fragments, and embedded credentials remain excluded.
+**State:** Scan/snapshot preservation and evidence-event export implemented. Future auditor, remediation, re-verification and reporting extensions remain planned. Full URL paths are approved; query strings, fragments, and embedded credentials remain excluded.
 
 ## Implemented scan format: 2.1
 
 New scans emit `schemaVersion: "2.1"`. This privacy revision removes verbatim `alternativeText` from all result and inventory nodes. `altPresent`, structural targets, rule IDs, numerical evidence, and manual-review behavior remain available. Privacy metadata declares `mode: "content-free"` and `alternativeTextIncluded: false`.
 
 Readers accept legacy 2.0 and new 2.1 scan records. A reader accepting a legacy record does not certify that record as sanitized. Existing files, queued payloads, and browser downloads are not rewritten or deleted automatically. Legacy alternative text is excluded when constructing site-report evidence. Downstream tools that require verbatim alternative text must switch to authorized local source inspection; its removal is intentional and versioned.
+
+**Legacy staging update:** Supported legacy staging/queue copies now remove `alternativeText`, normalize URL credentials/query/fragment values, and declare the transformation in privacy metadata. Original filesystem artifacts are unchanged. Changed staging content receives a new content ID with `sourceSnapshotIds` linkage to its prior staged ID. Unknown report roots, raw content fields and nonstructural targets stop the operation visibly. Migration compares the original staging transaction before committing, preserving concurrent submissions. This is a supported-export compatibility boundary, not a comprehensive adversarial JSON import validator; the future application importer still needs full schema validation.
 
 The scanner continues to analyze content transiently in the browser. It must not persist content merely because it was needed for analysis. No embedded AI, telemetry, application credentials, source files, application build identifiers, or commit hashes belong in scan exports. Scanner/engine versions describe the evaluation tool, not the scanned application's build.
 
@@ -26,9 +28,21 @@ The user confirmed on November 19, 2026 that full URL paths are acceptable but q
 
 Optional query/fragment route identity may continue to influence hashed identifiers without exporting the raw values. Preserve distinct hashed identities for different configured routes. Existing files are not automatically rewritten or deleted.
 
-## Planned history contract: 1.0
+## Implemented preservation contract: 1.0
 
-This section specifies future fields; none should be interpreted as already emitted by the extension.
+New 2.1 scans include an additive `scanId` UUID, generated once for the scan and retained through review updates and retries. Older scans without it use a clearly labeled legacy reference containing the hashed page/state filename and known scan timestamp. No missing original timestamps or attribution are fabricated.
+
+Every installed-extension completed scan and review submission is preserved before disk auto-save may be skipped, a download authorized, or a folder report replaced. The local snapshot store is bounded and fails visibly without evicting older evidence. Review restoration uses the latest dated preserved decisions even in download-only mode with Remember history off; optional comparison baselines remain opt-in.
+
+Settings exports `reportType: preserved-evidence`, schema 1.0, containing `snapshots` plus `events`. Snapshot entries include a SHA-256 content ID, hashed report filename, original report, staging byte count and recording time. Events have stable IDs derived from snapshot ID and event kind/check ID; they reference the snapshot and scan, carry original evaluation/review time, recording time, outcomes or review status, and `attribution: null` until attribution is implemented. Repeated exports produce the same IDs for the same evidence.
+
+Event types are `scan-evidence-preserved`, `manual-review-evidence-preserved`, and `keyboard-review-evidence-preserved`. These describe retained observations, including restored or merged historical decisions; they do not falsely claim that each repeat represents a new human action. A snapshot's full original report preserves page/state, criteria and technical findings. No-longer-detected findings are not automatically verified fixes.
+
+Explicit folder archival writes immutable `preserved-snapshot` envelopes, schema 1.0, containing the report and event summaries. Read-back validation precedes release of the staging copy. Legacy archives without summaries remain interpretable from their original snapshots. Neither portable export nor download authorization confirms browser download completion. Neither mode can recover history overwritten before preservation was installed. Clearing extension storage/uninstalling can remove locally staged evidence; archive or export it first.
+
+## Future history extensions
+
+The following describes the broader target. Scan IDs and immutable snapshot IDs already exist as described above; auditor/finding identities and source-change/remediation actions remain later-phase work, not prerequisites for preserving current scan/review results.
 
 | Entity | Identifier and relationship |
 |---|---|
@@ -37,7 +51,7 @@ This section specifies future fields; none should be interpreted as already emit
 | Auditor | Stable locally generated UUID; self-declared first/last-name attribution snapshot on each event |
 | Finding | UUID within a scan; separate comparison fingerprint using rule plus structural target |
 | Criterion | WCAG numeric identifier plus standard/version context |
-| Review event | UUID referencing page, state, criterion or scope check, and applicable scan |
+| Review event | Current preservation events use stable snapshot/check-derived IDs; future action events must preserve linkage to page, state, criterion or scope check, and scan |
 | Re-verification event | UUID referencing affected page/state and prior evidence; reason and uncertainty retained |
 | Technical payload | Immutable payload identifier referenced by scan events; deduplicate identical sanitized payloads |
 

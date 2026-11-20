@@ -12,6 +12,7 @@ globalThis.accessLensSettings = {
       HISTORY_FULL: 'Local evidence preservation is full (100 snapshots or 20 MB). This report was not queued. Open Settings and archive preserved evidence to the selected folder, then retry the save.',
       HISTORY_CONFLICT: 'An evidence archive could not be verified or conflicts with its snapshot identifier. Local evidence was retained. Check the archive before retrying; conflicting files were not replaced.',
       HISTORY_UNAVAILABLE: 'Evidence preservation is unavailable. Reload the extension and webpage before saving; the existing report was not replaced.',
+      UNSAFE_EVIDENCE: 'This report contains unsupported or content-bearing fields. Its original was retained and the operation stopped. Use a supported sanitized export or review the legacy report before retrying.',
       PENDING_SAVES: 'Some reports remain queued. Restore folder access and check the recovery queue in Settings.',
       NotAllowedError: 'The browser denied folder access. Open Settings and restore access or choose the folder again.',
       SecurityError: 'The browser blocked folder access. Open Settings and choose an allowed folder.',
@@ -69,12 +70,15 @@ globalThis.accessLensSettings = {
     const saved = await this.savedReview(filename, settings);
     const pending = this.pending ? (await this.pending())[filename]?.report : null;
     const queued = pending ? this.reviewChoices(pending) : {};
+    const preserved = this.retainedSnapshots ? Object.values(await this.retainedSnapshots())
+      .filter(entry => entry.filename === filename).map(entry => this.reviewChoices(entry.report)) : [];
     const checklist = { ...saved.checklist };
-    for (const [id, check] of [...Object.entries(previous.checklist || {}), ...Object.entries(queued.checklist || {})]) {
+    for (const [id, check] of [...Object.entries(previous.checklist || {}), ...preserved.flatMap(review => Object.entries(review.checklist || {})), ...Object.entries(queued.checklist || {})]) {
       if (!checklist[id] || Date.parse(check.checkedAt) > Date.parse(checklist[id].checkedAt)) checklist[id] = check;
     }
-    const keyboardTest = queued.keyboardTest || saved.keyboardTest;
-    return { enabled: Boolean(settings.rememberHistory || settings.directory), baseline: previous.baseline, checklist: Object.keys(checklist).length ? checklist : undefined, keyboardTest };
+    const keyboardTest = [queued.keyboardTest, saved.keyboardTest, ...preserved.map(review => review.keyboardTest)].filter(Boolean)
+      .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt) || Date.parse(b.assessment.checkedAt) - Date.parse(a.assessment.checkedAt))[0];
+    return { enabled: Boolean(settings.rememberHistory || settings.directory || preserved.length), baseline: previous.baseline, checklist: Object.keys(checklist).length ? checklist : undefined, keyboardTest };
   },
   async savedReview(filename, settings) {
     if (!/^access-lens-[a-f0-9]{64}\.json$/.test(filename || '')) throw this.failure('INVALID_FILENAME');

@@ -65,6 +65,8 @@ test('Settings exports preserved evidence without deleting snapshots', async ({ 
   const bundle = JSON.parse(text);
   expect(bundle.reportType).toBe('preserved-evidence');
   expect(bundle.snapshots).toHaveLength(1);
+  expect(bundle.events).toHaveLength(1);
+  expect(bundle.events[0].eventType).toBe('scan-evidence-preserved');
   expect(bundle.snapshots[0].report.scannedAt).toBe('2026-11-19T12:00:00Z');
   expect(await page.evaluate(async () => Object.keys(await accessLensSettings.retainedSnapshots()).length)).toBe(1);
   await expect(page.locator('#evidenceStatus')).toContainText('Local evidence was retained');
@@ -124,6 +126,7 @@ test('verified immutable archival frees staging capacity and repeated archival d
   expect(result.writes).toBe(1);
   expect(Object.keys(result.files)).toHaveLength(1);
   expect(JSON.parse(Object.values(result.files)[0]).report.results.violations[0].id).toBe('image-alt');
+  expect(JSON.parse(Object.values(result.files)[0]).events[0].outcomes.violations).toBe(1);
   expect(result.retained).toEqual({});
   expect(Object.keys(result.pending)).toHaveLength(1);
 });
@@ -239,5 +242,122 @@ for (const failure of ['none', 'prior', 'merged']) {
       expect(result.writes).toBe(0);
       expect(Object.keys(result.pending)).toHaveLength(1);
     }
+  });
+}
+
+test('download-only scans, skipped auto saves and review changes retain replayable historical evidence', async ({ page }) => {
+  await load(page);
+  const result = await page.evaluate(async () => {
+    const filename = `access-lens-${'f'.repeat(64)}.json`;
+    const first = { schemaVersion: '2.1', privacy: { mode: 'content-free' }, scanId: crypto.randomUUID(),
+      scannedAt: '2026-11-19T12:00:00Z', results: { violations: [{ id: 'image-alt', nodes: [{ target: ['img:nth-child(1)'] }] }] }, manualChecks: {} };
+    const automatic = await accessLensSettings.saveRecoverable(first, true, filename);
+    const download = await accessLensSettings.saveRecoverable(first, false, filename);
+    const reviewed = { ...first, manualChecks: { '1.1.1': { status: 'fail', checkedAt: '2026-11-19T12:01:00Z' } } };
+    const decision = await accessLensSettings.saveRecoverable(reviewed, false, filename, undefined, false, true);
+    const next = { ...first, scanId: crypto.randomUUID(), scannedAt: '2026-11-19T13:00:00Z', results: { violations: [] },
+      manualChecks: { '1.1.1': { status: 'pass', checkedAt: '2026-11-19T13:01:00Z' } } };
+    await accessLensSettings.saveRecoverable(next, true, filename);
+    await accessLensSettings.saveRecoverable(next, false, filename);
+    const bundle = await accessLensSettings.preservedEvidence();
+    return { automatic, download, decision, bundle, pending: await accessLensSettings.pending() };
+  });
+  expect(result.automatic).toEqual({ skipped: true });
+  expect(result.download).toEqual({ download: true });
+  expect(result.decision).toEqual({ skipped: true });
+  expect(result.pending).toEqual({});
+  expect(result.bundle.snapshots).toHaveLength(3);
+  expect(new Set(result.bundle.events.map(event => event.eventId)).size).toBe(result.bundle.events.length);
+  const decisions = result.bundle.events.filter(event => event.eventType === 'manual-review-evidence-preserved');
+  expect(decisions.map(event => event.status).sort()).toEqual(['fail', 'pass']);
+  expect(new Set(result.bundle.events.map(event => event.scanId)).size).toBe(2);
+  expect(result.bundle.events.some(event => event.outcomes?.violations === 1)).toBe(true);
+  expect(result.bundle.events.some(event => event.outcomes?.violations === 0)).toBe(true);
+  const ids = result.bundle.events.map(event => event.eventId).sort();
+  await page.reload();
+  for (const file of ['save-settings.js', 'recovery.js']) await page.addScriptTag({ path: path.resolve(file) });
+  expect(await page.evaluate(async () => (await accessLensSettings.preservedEvidence()).events.map(event => event.eventId).sort())).toEqual(ids);
+});
+
+test('preservation failure prevents download authorization and leaves prior download history intact', async ({ page }) => {
+  await load(page);
+  const result = await page.evaluate(async () => {
+    const filename = `access-lens-${'a'.repeat(64)}.json`;
+    const report = { schemaVersion: '2.1', privacy: { mode: 'content-free' }, scannedAt: '2026-11-19T12:00:00Z' };
+    await accessLensSettings.saveRecoverable(report, false, filename);
+    const entries = await accessLensSettings.retainedSnapshots();
+    entries[Object.keys(entries)[0]].bytes = 20 * 1024 * 1024;
+    await accessLensSettings.write({ entries }, 'evidence-snapshots');
+    const response = await accessLensSettings.saveRecoverable({ ...report, scannedAt: '2026-11-19T13:00:00Z' }, false, filename);
+    return { response, bundle: await accessLensSettings.preservedEvidence() };
+  });
+  expect(result.response.code).toBe('HISTORY_FULL');
+  expect(result.response.download).toBeUndefined();
+  expect(result.bundle.snapshots).toHaveLength(1);
+  expect(result.bundle.snapshots[0].report.scannedAt).toBe('2026-11-19T12:00:00Z');
+});
+
+test('download-only review decisions restore after reload without opt-in comparison history', async ({ page }) => {
+  await load(page);
+  await page.addScriptTag({ path: path.resolve('workflow.js') });
+  const filename = `access-lens-${'b'.repeat(64)}.json`;
+  await page.evaluate(async filename => {
+    const report = { schemaVersion: '2.1', privacy: { mode: 'content-free' }, scannedAt: '2026-11-19T12:00:00Z',
+      manualChecks: { keyboard: { status: 'fail', checkedAt: '2026-11-19T12:01:00Z' } } };
+    await accessLensSettings.saveRecoverable(report, false, filename, undefined, false, true);
+    report.manualChecks.keyboard = { status: 'pass', checkedAt: '2026-11-19T12:02:00Z' };
+    await accessLensSettings.saveRecoverable(report, false, filename, undefined, false, true);
+  }, filename);
+  await page.reload();
+  for (const file of ['workflow.js', 'save-settings.js', 'recovery.js']) await page.addScriptTag({ path: path.resolve(file) });
+  const restored = await page.evaluate(filename => accessLensSettings.history(filename), filename);
+  expect(restored.checklist.keyboard).toEqual({ status: 'pass', checkedAt: '2026-11-19T12:02:00.000Z' });
+  expect(restored.baseline).toBeUndefined();
+  expect(await page.evaluate(async () => Object.keys(await accessLensSettings.retainedSnapshots()).length)).toBe(2);
+});
+
+test('legacy staging and pending copies normalize without losing failures, decisions or source ID linkage', async ({ page }) => {
+  await load(page);
+  const result = await page.evaluate(async () => {
+    const filename = `access-lens-${'c'.repeat(64)}.json`;
+    const report = { schemaVersion: '2.0', privacy: { mode: 'alternative-text-included', alternativeTextIncluded: true },
+      pagePath: 'https://PRIVATE_USER:PRIVATE_PASSWORD@example.test/cases/123?token=PRIVATE_QUERY#PRIVATE_FRAGMENT', scannedAt: '2026-11-19T12:00:00Z',
+      results: { violations: [{ id: 'image-alt', nodes: [{ target: ['img:nth-child(1)'], alternativeText: 'PRIVATE_ALT' }] }] },
+      manualChecks: { '1.1.1': { status: 'fail', checkedAt: '2026-11-19T12:01:00Z' } } };
+    const original = JSON.stringify(report);
+    const oldId = 'd'.repeat(64);
+    await accessLensSettings.write({ entries: { [oldId]: { id: oldId, filename, report, bytes: original.length * 2, recordedAt: '2026-11-19T12:02:00Z' } } }, 'evidence-snapshots');
+    await accessLensSettings.write({ entries: { [filename]: { token: 'legacy', report, bytes: original.length * 2 } } }, 'pending-saves');
+    const bundle = await accessLensSettings.preservedEvidence();
+    const pending = await accessLensSettings.pending();
+    return { bundle, pending, storedSnapshots: await accessLensSettings.read('evidence-snapshots'), oldId, originalUnchanged: JSON.stringify(report) === original };
+  });
+  expect(result.originalUnchanged).toBe(true);
+  const snapshot = result.bundle.snapshots[0];
+  expect(snapshot.sourceSnapshotIds).toContain(result.oldId);
+  expect(snapshot.report.schemaVersion).toBe('2.0');
+  expect(snapshot.report.privacy.legacyAlternativeTextRemoved).toBe(true);
+  expect(snapshot.report.results.violations[0].id).toBe('image-alt');
+  expect(snapshot.report.manualChecks['1.1.1'].status).toBe('fail');
+  expect(snapshot.report.scannedAt).toBe('2026-11-19T12:00:00Z');
+  expect(snapshot.report.pagePath).toBe('https://example.test/cases/123');
+  expect(JSON.stringify(result)).not.toContain('PRIVATE_');
+});
+
+for (const field of ['html', 'text', 'sourceMetadata']) {
+  test(`raw legacy ${field} is rejected without modifying its existing staging record`, async ({ page }) => {
+    await load(page);
+    const result = await page.evaluate(async field => {
+      const filename = `access-lens-${'e'.repeat(64)}.json`;
+      const report = { schemaVersion: '2.0', privacy: { mode: 'content-free' }, scannedAt: '2026-11-19T12:00:00Z', results: { violations: [{ id: 'image-alt', nodes: [{ target: ['img:nth-child(1)'], [field]: 'PRIVATE_RAW' }] }] } };
+      const original = { entries: { legacy: { id: 'legacy', filename, report, bytes: 1 } } };
+      await accessLensSettings.write(original, 'evidence-snapshots');
+      let error;
+      try { await accessLensSettings.preservedEvidence(); } catch (caught) { error = accessLensSettings.saveError(caught); }
+      return { error, unchanged: JSON.stringify(await accessLensSettings.read('evidence-snapshots')) === JSON.stringify(original) };
+    }, field);
+    expect(result.error.code).toBe('UNSAFE_EVIDENCE');
+    expect(result.unchanged).toBe(true);
+    expect(JSON.stringify(result.error)).not.toContain('PRIVATE_RAW');
   });
 }

@@ -27,11 +27,11 @@ input,textarea,select{font:inherit;box-sizing:border-box}input[type=text],input[
 <button id="savePolicy">Save scan controls</button>
 <h2>Save recovery queue</h2>
 <p>Failed saves retain content-free JSON locally, including pagePath. The latest report for each filename is kept, up to 100 reports or 20 MB. Automatic retries run about once a minute when not paused.</p>
-<p>Folder-save submissions also preserve distinct evidence snapshots locally, independently of the latest-report queue and Remember history. This preservation store is limited to 100 snapshots or 20 MB and stops accepting new snapshots visibly when full. Deleting queued reports does not delete preserved evidence.</p>
+<p>Completed scans and review changes preserve distinct evidence snapshots locally in both folder and browser-download modes, even when automatic disk saving and Remember history are off. This preservation store is limited to 100 snapshots or 20 MB and stops accepting new snapshots visibly when full. Deleting queued reports does not delete preserved evidence. Local history survives browser restarts, but uninstalling the extension or clearing its data can remove it; export or archive evidence you need to retain.</p>
 <button id="exportEvidence">Export preserved evidence JSON</button>
 <button id="archiveEvidence">Archive preserved evidence to selected folder</button>
 <p>Archiving writes immutable snapshots under access-lens-history in the selected folder, verifies each saved copy, then releases its local staging space. Archived files are retained. Existing conflicting files are never replaced. After archiving, the JSON export above includes only snapshots still staged locally.</p>
-<p>Exports all locally preserved snapshots without deleting them. Legacy snapshots may contain image alternative text. Save the download securely; a download request does not confirm archival completion.</p>
+<p>Exports locally staged snapshots without deleting their evidence. Supported legacy copies omit verbatim image alternatives; unsafe raw fields stop the export. Original disk reports and existing archives are unchanged. Save the download securely; a download request does not confirm archival completion.</p>
 <p id="evidenceStatus" role="status"></p>
 <button id="retryQueue">Retry queued saves</button><button id="deleteQueue">Delete all queued reports</button>
 <p id="queueStatus" role="status"></p><ul id="queueList"></ul>

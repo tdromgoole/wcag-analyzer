@@ -47,7 +47,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
     let el;
     try {
       let scope = document;
-      for (const selector of node.target || []) {
+      for (const selector of (node.target || []).flat(20)) {
         if (typeof selector !== 'string') throw new Error();
         el = scope.querySelector(selector);
         if (!el) break;
@@ -140,7 +140,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
     });
   }
   const exported = {
-    schemaVersion: '2.1', pagePath: page.href,
+    schemaVersion: '2.1', pagePath: page.href, scanId: crypto.randomUUID(),
     privacy: { mode: 'content-free', alternativeTextIncluded: false, structuralLocatorsOnly: true, pagePathIncluded: true, queryAndFragmentIncluded: false },
     tool: report.tool, scannedAt: report.scannedAt, scope: report.scope, summary: report.summary,
     completeness,

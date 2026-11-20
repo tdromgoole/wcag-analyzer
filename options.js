@@ -11,9 +11,9 @@
   };
   $('#exportEvidence').onclick = async () => {
     try {
-      const snapshots = Object.values(await accessLensSettings.retainedSnapshots());
+      const bundle = await accessLensSettings.preservedEvidence();
+      const snapshots = bundle.snapshots;
       if (!snapshots.length) { $('#evidenceStatus').textContent = 'No preserved snapshots are available.'; return; }
-      const bundle = { schemaVersion: '1.0', reportType: 'preserved-evidence', generatedAt: new Date().toISOString(), snapshots };
       const url = URL.createObjectURL(new Blob([JSON.stringify(bundle)], { type: 'application/json' }));
       const link = document.createElement('a'); link.href = url; link.download = 'access-lens-preserved-evidence.json';
       document.body.append(link); link.click(); link.remove();

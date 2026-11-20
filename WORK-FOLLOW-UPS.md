@@ -58,6 +58,14 @@
 - The regression laboratory uses synthetic content and remains independent of the secured application.
 - Auditor names are self-declared attribution, not authenticated identity; future authenticated-user mapping belongs to later integration work.
 
+## Representative Application Performance — When Available
+
+- [ ] Compare small, medium and large application pages with the [synthetic performance baseline](PERFORMANCE-BASELINE.md).
+- [ ] Include an image/gradient contrast case, a modal/tab state and an actual selected-folder save.
+- [ ] Record only sizes, timings, scope and sanitized diagnostic outcomes; do not copy application content or credentials into this repository.
+
+**Current development decision:** Synthetic performance measurement does not require access to the secured application. Application-specific timings remain a workplace validation task.
+
 ## Resolution Log
 
 When an item is resolved, record the date, decision, approved reference, and affected plan section. Avoid copying credentials, sensitive application data, or confidential source material into this file.

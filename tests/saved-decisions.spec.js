@@ -41,8 +41,9 @@ test('worker saves explicit decision edits with auto-save off without triggering
   expect(await send()).toEqual({ saved: true });
   expect(calls[0][1]).toBe(false);
   folder = false;
-  expect(await send()).toEqual({ skipped: true });
-  expect(calls).toHaveLength(1);
+  expect(await send()).toEqual({ saved: true });
+  expect(calls).toHaveLength(2);
+  expect(calls[1][5]).toBe(true);
 });
 
 test('restores disk decisions without browser history and validates imported choices', async ({ page }) => {

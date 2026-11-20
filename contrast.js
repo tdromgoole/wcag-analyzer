@@ -23,7 +23,7 @@ globalThis.accessLensContrast = {
     const groups = [];
     for (const parent of [...rule.nodes]) {
       let scope = document, element;
-      try { for (const selector of parent.target) { element = scope.querySelector(selector); scope = element?.shadowRoot || element; } } catch { continue; }
+      try { for (const selector of parent.target.flat(20)) { element = scope.querySelector(selector); scope = element?.shadowRoot || element; } } catch { continue; }
       if (!(element instanceof HTMLElement) || !element.children.length) continue;
       const runs = [], walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
       let text, limited = false;
@@ -84,7 +84,7 @@ globalThis.accessLensContrast = {
         if (!node) break;
         visited.add(node);
         let scope = document, el;
-        try { if (node.accessLensTextOwner) el = node.accessLensTextOwner; else for (const selector of node.target) { el = scope.querySelector(selector); scope = el?.shadowRoot || el; } } catch { continue; }
+        try { if (node.accessLensTextOwner) el = node.accessLensTextOwner; else for (const selector of node.target.flat(20)) { el = scope.querySelector(selector); scope = el?.shadowRoot || el; } } catch { continue; }
         if (!el?.isConnected) continue;
         for (let parent = el.parentElement; parent; parent = parent.parentElement || parent.getRootNode().host) {
           if (!containers.has(parent)) containers.set(parent, { x: parent.scrollLeft, y: parent.scrollTop });
@@ -128,7 +128,7 @@ globalThis.accessLensContrast = {
       if (check.data && check.data.originalReviewCode === undefined) check.data.originalReviewCode = check.data.messageKey;
       try {
         let scope = document, el;
-        if (node.accessLensTextOwner) el = node.accessLensTextOwner; else for (const selector of node.target) { el = scope.querySelector(selector); scope = el?.shadowRoot || el; }
+        if (node.accessLensTextOwner) el = node.accessLensTextOwner; else for (const selector of node.target.flat(20)) { el = scope.querySelector(selector); scope = el?.shadowRoot || el; }
         if (!(el instanceof HTMLElement) || ['textarea','select','canvas','video','audio'].includes(el.localName) || el.children.length && !node.accessLensTextNode || !el.getClientRects().length) { review(node, 'unsupported-element'); continue; }
         const foreground = this.foreground(el, { allowTextShadow: true }), style = getComputedStyle(el);
         let rect, rects;

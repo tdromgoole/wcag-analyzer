@@ -19,7 +19,7 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 
 ## Core Architectural Requirements
 
-1. The extension remains a standalone TypeScript-based scanner with no embedded AI.
+1. The extension remains a standalone JavaScript scanner with no embedded AI. TypeScript migration is tracked separately and does not block the current plan (user decision, November 19, 2026).
 2. No user content, application data, or sensitive information may be collected or exported.
 3. JSON exports contain only approved technical accessibility findings, element identifiers, structural paths, and diagnostic evidence.
 4. AI may inspect authorized application source code and sanitized JSON, but cannot log into the application, access its database, or execute database scripts.
@@ -38,10 +38,9 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 
 - [x] Inspect existing JSON exports and measure actual file sizes.
 - [x] Determine whether scan history is already preserved.
-- [x] Verify original failures remain available after rescanning. **Folder-save workflow verified:** the previous disk snapshot is retained before replacement, including legacy 2.0 reports. Failed preservation blocks replacement. Browser-download-only history and independent-writer guarantees remain outside this verification.
+- [x] Verify original failures remain available after rescanning. **Folder and browser-download workflows verified:** the previous disk snapshot is retained before replacement, and download-mode history survives later scans and reloads. Failed preservation blocks replacement/download authorization. Independent-writer guarantees remain outside this verification.
 - [x] Verify saved manual-review decisions are restored correctly.
-- [ ] Preserve historical results if the existing implementation overwrites them.
-  **Implemented:** folder-save snapshots and merged reviews are preserved locally with explicit verified folder archival. **Still open:** complete event-ledger and browser-download-only coverage.
+- [x] Preserve historical results if the existing implementation overwrites them. **Implemented:** scan/review snapshots in folder and browser-download modes, original disk failures, merged reviews, stable scan/event IDs, portable evidence-event ledger, reload restoration, and verified explicit archival. Preservation failures block saves/download authorization visibly. Later-phase auditor/source-change/remediation events remain separate tasks; no prior overwritten history can be reconstructed.
 - [x] Identify duplicated or unnecessary diagnostic information. **Measured:** formatting and repeated targets; no evidence removed. See [storage assessment](EVIDENCE-STORAGE-DESIGN.md).
 - [x] Distinguish AI remediation data, diagnostic data, and compliance evidence. See the storage assessment's evidence responsibilities.
 - [x] Evaluate whether separate detailed JSON and lightweight per-page history files would improve storage efficiency. **Direction:** immutable technical payloads plus compact events; current snapshot retained for compatibility.
@@ -51,37 +50,38 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 
 - [x] Verify the sitemap updates automatically after scans and manual reviews.
 - [x] Confirm pages cannot receive Pass while applicable failures or outstanding evaluations remain.
-- [ ] Verify rescans correctly update the current page status.
-- [ ] Confirm historical evidence remains available after status changes.
-- [ ] Verify sitemap data can be reconstructed from underlying scan records where practical.
-- [ ] Preserve existing status names and behavior unless defects are identified.
+- [x] Verify rescans correctly update the current page status. Existing UI tests and the new older-completion regression passed.
+- [x] Confirm historical evidence remains available after status changes. Mutable summaries retain historical dates; original scan/review snapshots are preserved separately.
+- [x] Verify sitemap data can be reconstructed from underlying scan records where practical. [Assessment](SITEMAP-EVIDENCE-ASSESSMENT.md) distinguishes reconstructible scan-derived status from unavailable discovery/attempt history; no rebuild command claimed.
+- [x] Preserve existing status names and behavior unless defects are identified. No status names or behaviors changed during this assessment.
 
 ### 0.3 Security and Privacy
 
 - [ ] Verify that DOM scanning never captures page text, form values, or user-generated content.
-- [ ] Inspect identifiers, classes, attributes, DOM paths, and logs for potential sensitive-data exposure.
+  **Clarification:** existing analysis reads content transiently. [Privacy assessment](PRIVACY-ASSESSMENT.md) verifies exclusion from newly generated persisted/exported evidence; legacy normalization remains open.
+- [x] Inspect identifiers, classes, attributes, DOM paths, and logs for potential sensitive-data exposure. New evidence tested with private sentinels; raw worker exception logging removed. Legacy input gap documented.
 - [ ] Confirm exported JSON contains only approved technical information.
 - [ ] Verify that no scan data is transmitted to external services.
 - [ ] Confirm temporary storage and debugging mechanisms follow the same privacy requirements.
-- [ ] Preserve the extension's no-AI architecture.
-- [ ] Preserve the developer-controlled AI remediation workflow.
+- [x] Preserve the extension's no-AI architecture. No AI service or telemetry upload endpoint found in first-party scanner paths.
+- [x] Preserve the developer-controlled AI remediation workflow. Extension code proposes technical guidance; work-app source/database remediation remains external and developer controlled.
 
 ### 0.4 AI Remediation Compatibility
 
 - [ ] Identify every JSON field used by the existing AI remediation process.
 - [ ] Preserve file paths, selectors, element ancestry, rule identifiers, and actionable findings.
-- [ ] Verify nested elements without IDs or classes can be reliably located.
-- [ ] Confirm that historical selectors are treated as snapshots rather than permanent identifiers.
-- [ ] Version the JSON schema before introducing breaking changes.
-- [ ] Ensure storage optimization does not remove information required for AI remediation.
+- [x] Verify nested elements without IDs or classes can be reliably located. Fixed nested axe shadow-target traversal; identifier-free ancestry and real inspector selection regression passed.
+- [x] Confirm that historical selectors are treated as snapshots rather than permanent identifiers. DOM-move regression verifies changed current locators and preserved old snapshots.
+- [x] Version the JSON schema before introducing breaking changes. Schema 2.1 and legacy-reader/normalization behavior documented in the shared contract.
+- [x] Ensure storage optimization does not remove information required for AI remediation. Full supported technical snapshots remain; no diagnostic compaction performed. Intentional alternative-text privacy removal is versioned separately.
 
 ### 0.5 Performance Baseline
 
-- [ ] Measure scan duration across small, medium, and large pages.
+- [x] Measure scan duration across small, medium, and large pages. [Synthetic baseline](PERFORMANCE-BASELINE.md) covers 95/615/2,415 elements; screenshot/media and application timings remain separate.
 - [ ] Identify bottlenecks in the contrast engine and other scanners.
-- [ ] Measure JSON serialization and file-writing overhead.
-- [ ] Establish a baseline before optimizing.
-- [ ] Avoid introducing IndexedDB or SQLite without demonstrated benefit.
+- [x] Measure JSON serialization and file-writing overhead. Synthetic serialization/local preservation and Node disk-write timings recorded; browser File System Access API latency remains unmeasured.
+- [x] Establish a baseline before optimizing. No scan-performance optimization applied; synthetic scope and limitations documented.
+- [x] Avoid introducing IndexedDB or SQLite without demonstrated benefit. Existing IndexedDB retained; no new storage engine introduced.
 
 ---
 
@@ -375,6 +375,10 @@ Representative testing must not be treated as proof that every untested page rem
 
 **Finally:** Build the secured application's database-backed reporting module using the evidence format established throughout development.
 
+## Separate Future Engineering Work
+
+- [ ] Evaluate and plan a TypeScript migration separately after current feature priorities. Preserve the JavaScript implementation for this plan; do not introduce migration churn into unrelated scanner changes.
+
 ## Definition of Done
 
 The project is complete when:
@@ -408,3 +412,9 @@ The project is complete when:
 | November 19, 2026 | Preservation validation and export | Full suite passed 102 tests after snapshot retention. Added Settings portable evidence export without deletion; all 14 affected history/Settings/recovery tests then passed, including the new download regression. | Complete folder archival and capacity recovery, then capture legacy and disk-merged reviews. Full historical preservation remains open. |
 | November 19, 2026 | Verified folder archival | Added explicit Settings archival into a dedicated history directory with content-addressed snapshots, read-back verification, retry reuse, conflict protection and release of verified local staging copies. All 32 affected tests passed, including full-capacity recovery; extension build succeeded. No archive files are automatically deleted. | Preexisting disk evidence and disk-merged reviews still need preservation before the original-failures gap can close. Native folder permissions require a manual browser check. |
 | November 19, 2026 | Original disk failures and merged reviews | Folder saves now retain incoming, validated previous disk, and final merged snapshots before replacement. Preservation failures leave the old report intact and attempted recoverable save queued. All 112 regression tests passed. Marked original-failure verification complete for the tested folder-save workflow. | Complete browser-download-only history and event-ledger coverage; independent-writer/native-permission checks remain outside automated guarantees. |
+| November 19, 2026 | Historical-results preservation complete | All installed-extension scan/review submissions now preserve history in both folder and download modes, including disabled disk auto-save. Added stable scan IDs, portable scan/manual/keyboard evidence-event ledger, restored download-mode reviews after reload, and fail-closed download authorization. All 115 regression tests passed. Marked the Phase 0 historical-results preservation item complete. | Auditor attribution and source-change/remediation action events remain in their own later phases. Export/archive staging before clearing extension data; independent writers and native prompts remain manual validation boundaries. |
+| November 19, 2026 | Sitemap integrity assessment complete | [Assessment](SITEMAP-EVIDENCE-ASSESSMENT.md) records current-status, historical-date and reconstruction boundaries. Added older-completion/failed-attempt regression; all 30 related tests passed. Checked remaining Phase 0 sitemap verification items. | Continue Phase 0 privacy and performance assessment; a future rebuild must not invent missing discovery/attempt history. |
+| November 19, 2026 | Privacy boundary assessment | [Assessment](PRIVACY-ASSESSMENT.md): new scan/IndexedDB/history exports omit seeded content and source metadata; controlled scan made no HTTP requests. Replaced raw worker error logs with fixed diagnostics. All 25 affected tests passed. | Normalize or reject content-bearing legacy evidence before general export/storage privacy checks can close. Keep transient analysis distinct from persistence. |
+| November 19, 2026 | Legacy compatibility and performance baseline | Supported legacy staging/queue copies normalize alternative text and URL secrets while retaining findings/reviews, with prior-ID linkage. Unsupported raw fields fail visibly without modifying originals. Added [synthetic benchmark](PERFORMANCE-BASELINE.md), identifying export construction as the largest measured large-page stage. | Full regression verification underway. Await decision on JavaScript versus a separate TypeScript migration; real screenshot/browser-file timings and comprehensive untrusted-input schema validation remain open. |
+| November 19, 2026 | Legacy normalization verified | All 122 regression tests passed; build succeeded. Read-only normalization of the actual saved schema 2.0 sample retained its violation-rule count and removed all alternativeText fields without modifying its original file. | Await JavaScript/TypeScript sequencing decision. Continue scoped privacy/schema and screenshot-performance work; workplace application timing checks are recorded separately. |
+| November 19, 2026 | Language and structural compatibility | User confirmed keeping JavaScript and tracking TypeScript migration separately. [Compatibility assessment](REMEDIATION-COMPATIBILITY.md) records a discovered/fixed nested axe shadow-target bug across export, inspector, link and contrast traversal. Identifier-free ancestry, historical-locator preservation and actual shadow-node selection tests passed. | Full regression validation underway. Clarify whether “file paths” includes app source filenames; work-app consumer inventory remains a workplace dependency. |

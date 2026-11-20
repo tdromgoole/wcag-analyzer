@@ -102,3 +102,30 @@ test('sitemap keeps unresolved states red and separates review from clean status
   await expect(ui.locator('.sitemap-status.review')).toHaveText('!');
 });
 
+test('older completions and failed attempts cannot erase newer sitemap evidence or historical dates', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4178');
+  for (const file of ['save-settings.js', 'features.js']) await page.addScriptTag({ path: path.resolve(file) });
+  const result = await page.evaluate(async () => {
+    const site = 'a'.repeat(64), page = 'b'.repeat(64), state = 'c'.repeat(64);
+    const nodes = [{ id: page, parent: null, path: '/review', linked: true }];
+    const cleanAt = new Date(Date.now() - 60000).toISOString();
+    const latestAt = new Date(Date.now() - 1000).toISOString();
+    const base = { nodes, page, state, violations: 0, review: 0, manualFailures: 0, manualStale: 0, wcagPending: 0, limited: false, status: 'saved' };
+    const clean = await accessLensSettings.sitemap(site, { ...base, scannedAt: cleanAt });
+    const broken = await accessLensSettings.sitemap(site, { ...base, scannedAt: latestAt, violations: 1 });
+    const old = await accessLensSettings.sitemap(site, { ...base, scannedAt: cleanAt });
+    const failed = await accessLensSettings.sitemap(site, { nodes, page, state, status: 'failed' });
+    const exported = accessLensFeatures.sitemapExport(failed);
+    return { clean: clean.nodes[page], broken: broken.nodes[page], old: old.nodes[page], failed: failed.nodes[page], exported, state, cleanAt, latestAt };
+  });
+  expect(result.clean.complianceAt).toBe(result.cleanAt);
+  for (const record of [result.broken, result.old, result.failed]) {
+    expect(record.states[result.state].violations).toBe(1);
+    expect(record.states[result.state].scannedAt).toBe(result.latestAt);
+    expect(record.complianceAt).toBe(result.cleanAt);
+    expect(record.dateAdded).toBe(result.clean.dateAdded);
+  }
+  expect(result.failed.attempts[result.state].status).toBe('failed');
+  expect(result.exported.coverage.failed).toBe(1);
+});
+

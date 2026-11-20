@@ -68,3 +68,9 @@ Command: `npx playwright test tests/workflow.spec.js tests/saved-decisions.spec.
 The approved URL policy retains full paths and excludes query strings, fragments, and credentials. `tests/path-privacy.spec.js` now verifies this through export, a failed folder save, persisted queue inspection, retry, folder output, site-report JSON and HTML. Together with existing sitemap/query stripping and identity tests, the focused follow-up run passed 23 tests. This covers the tested normal export path, not arbitrary untrusted JSON ingestion or every legacy payload.
 
 The user has not yet identified the applicable retention schedule. Retention classification remains open; no automatic cleanup was added.
+
+## Historical-results preservation completion
+
+The installed extension now preserves completed scan and review submissions even in browser-download-only mode and when disk auto-save is disabled. Portable history includes stable scan/snapshot/event identifiers, scan outcome summaries and original manual/keyboard review timestamps. Review restoration reads preserved decisions after reload independently of optional comparison history. Capacity/preservation errors block save/download authorization visibly rather than dropping older evidence. All 115 regression tests passed.
+
+The Phase 0 overwrite-preservation item is complete for current scan/review workflows. Later-phase auditor attribution and source-change/remediation events remain planned. No guarantee is made for older overwritten history, deliberate browser data clearing, uninstalling, independent filesystem writers, or browser download completion.

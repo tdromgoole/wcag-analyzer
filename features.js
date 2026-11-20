@@ -64,7 +64,7 @@ globalThis.accessLensFeatures = {
       if (node.secondPass) Object.assign(node.secondPass,{attempted:true,reason:'link-context-unsupported'});
       try {
         let scope=document, link;
-        for (const selector of node.target) { link=scope.querySelector(selector); scope=link?.shadowRoot || link; }
+        for (const selector of node.target.flat(20)) { link=scope.querySelector(selector); scope=link?.shadowRoot || link; }
         if (!link || link.localName !== 'a' || !link.getClientRects().length || getComputedStyle(link).visibility !== 'visible') continue;
         let context=link.parentElement;
         while(context && !['li','p','nav','td','th','h1','h2','h3','h4','h5','h6'].includes(context.localName) && !block(context)) context=context.parentElement;

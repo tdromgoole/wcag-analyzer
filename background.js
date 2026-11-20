@@ -92,9 +92,7 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     (async () => {
       const policy = accessLensFeatures.policy(await accessLensSettings.read(), message.report.pagePath);
       if (policy.excluded) return { error: 'This page is excluded in Settings. Remove its exclusion before saving.' };
-      const settings = await accessLensSettings.read();
-      if (message.decisionsChanged && !settings.directory) return { skipped: true };
-      const response = await accessLensSettings.saveRecoverable(message.report, message.decisionsChanged ? false : message.automatic === true, message.filename, message.metadata);
+      const response = await accessLensSettings.saveRecoverable(message.report, message.decisionsChanged ? false : message.automatic === true, message.filename, message.metadata, false, message.decisionsChanged === true);
       if (!response.skipped && !response.download && message.metadata?.site) await accessLensSettings.sitemap(message.metadata.site, { ...message.metadata, status: response.saved ? 'saved' : response.queued ? 'queued' : 'failed' });
       return response;
     })()
@@ -107,7 +105,7 @@ chrome.action.onClicked.addListener(async (tab) => {
     await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['vendor/axe.min.js', 'inspection.js', 'checks.js', 'export.js', 'workflow.js', 'features.js', 'contrast.js', 'keyboard.js', 'content.js'] });
     await chrome.action.setBadgeText({ tabId: tab.id, text: '' });
   } catch (error) {
-    console.warn('Access Lens could not open on this page:', error);
+    console.warn('Access Lens could not open on this page.');
     await chrome.action.setBadgeText({ tabId: tab.id, text: '!' });
     await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#b42335' });
     await chrome.action.setTitle({ tabId: tab.id, title: 'Cannot analyze this page. Open a regular website; browser settings and store pages are restricted.' });
@@ -149,7 +147,7 @@ chrome.runtime.onInstalled?.addListener(async () => {
 });
 async function restoreBrowsing(retry = false) {
   try { await (retry ? accessLensAutoMode.retry() : accessLensAutoMode.restore()); }
-  catch (error) { console.warn('Access Lens could not restore browsing scans:', error); }
+  catch { console.warn('Access Lens could not restore browsing scans.'); }
 }
 chrome.runtime.onStartup?.addListener(() => { ensureRecoveryAlarm().catch(() => {}); restoreBrowsing(true); });
 const browsingReady = restoreBrowsing();

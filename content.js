@@ -169,7 +169,7 @@
     }
   }
   function resolve(target) {
-    try { let scope = document, el; for (const selector of target) { if (typeof selector !== 'string') return null; el = scope.querySelector(selector); if (!el) return null; scope = el.shadowRoot || el; } return el; } catch { return null; }
+    try { let scope = document, el; for (const selector of target.flat(20)) { if (typeof selector !== 'string') return null; el = scope.querySelector(selector); if (!el) return null; scope = el.shadowRoot || el; } return el; } catch { return null; }
   }
   function position() {
     cancelAnimationFrame(frame);
@@ -903,7 +903,7 @@
         retry.hidden = false;
         return;
       }
-      if (response.skipped && decisionsChanged) saveStatus.textContent = 'Choices updated. Choose a save folder in Settings to save them automatically, or Export JSON.';
+      if (response.skipped && decisionsChanged) saveStatus.textContent = 'Review preserved in local evidence history. Export preserved evidence or choose a folder in Settings to archive it.';
       if (response?.saved) {
         saveStatus.textContent = automatic ? 'JSON auto saved to your selected folder.' : 'JSON saved to your selected folder.';
         saveDetail.textContent = `Last successful save: ${new Date().toLocaleString()} · ${filename}`;

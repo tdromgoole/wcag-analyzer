@@ -55,7 +55,7 @@ test('queue bounds, deletion, exclusions, pause, and concurrent updates preserve
     finish(); await inFlight;
     const remaining = (await accessLensSettings.pending())[filename].report.scannedAt;
     const entries = {};
-    for (let i = 0; i < 100; i++) entries[`access-lens-${i.toString(16).padStart(64, '0')}.json`] = { bytes: 1 };
+    for (let i = 0; i < 100; i++) entries[`access-lens-${i.toString(16).padStart(64, '0')}.json`] = { bytes: 1, report: structuredClone(report) };
     await accessLensSettings.write({ entries }, 'pending-saves');
     let full;
     try { await accessLensSettings.enqueue(report, filename); } catch (error) { full = error.code; }
