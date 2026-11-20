@@ -4,6 +4,12 @@
 body{font:16px system-ui;color:#233b5d;background:#f3f5f8;max-width:640px;margin:48px auto;padding:24px}main{background:white;border:1px solid #ccd5e2;border-radius:12px;padding:28px}button{font:inherit;padding:9px 14px;margin:8px 8px 8px 0;cursor:pointer}label{display:block;margin:24px 0}p{line-height:1.6}button:focus-visible,input:focus-visible{outline:3px solid #255caa}#status{min-height:1.6em}
 input,textarea,select{font:inherit;box-sizing:border-box}input[type=text],input[type=url],textarea{padding:8px;border:1px solid #bcc8d7;border-radius:5px}input[type=number]{width:5em;padding:5px}#status:not(:empty){position:sticky;bottom:0;background:#fff;padding:12px;border-top:1px solid #ccd5e2;box-shadow:0 -3px 12px #172b4810}
 </style></head><body><main><h1>Access Lens settings</h1>
+<h2>Auditor attribution</h2>
+<p>Optional first and last names are remembered on this browser and included with future scans and review decisions. They are self-declared personal information, not an authenticated identity. Unnamed scans are allowed and record unknown attribution. Earlier evidence is never relabelled.</p>
+<label for="auditorFirstName">First name</label><input id="auditorFirstName" type="text" maxlength="100" autocomplete="given-name">
+<label for="auditorLastName">Last name</label><input id="auditorLastName" type="text" maxlength="100" autocomplete="family-name">
+<p>Saving a name correction keeps this auditor's identifier. Before switching to another person, clear the profile; their next saved name receives a new identifier. Clearing removes this browser's profile, not names already preserved in evidence.</p>
+<button id="saveAuditor" type="button">Save auditor</button><button id="clearAuditor" type="button">Clear profile / switch auditor</button><p id="auditorStatus" role="status"></p>
 <h2>JSON save folder</h2><p id="folder">Loading…</p>
 <button id="choose">Choose folder…</button><button id="reset">Use browser downloads</button>
 <button id="restore" disabled>Restore folder access</button><p id="permission" role="status"></p>
@@ -47,11 +53,11 @@ input,textarea,select{font:inherit;box-sizing:border-box}input[type=text],input[
 <p>Tests send Tab and Shift+Tab to move focus; they do not activate controls. Press Escape or click Stop keyboard test to interrupt a run.</p>
 <button id="enableKeyboard">Enable keyboard testing</button><button id="disableKeyboard">Disable keyboard testing</button>
 <p id="keyboardPermissionStatus" role="status"></p>
-<p>The latest structural keyboard transcript is stored locally for recovery, including interrupted runs. It contains no page text, names, typed values, or screenshots. Export JSON to keep it with a scan.</p>
+<p>The latest structural keyboard transcript is stored locally for recovery, including interrupted runs. Traversal entries contain no page text, accessible names, typed values, or screenshots. Human assessment metadata can include the self-declared auditor name described above. Export JSON to keep it with a scan.</p>
 <button id="deleteKeyboard">Delete last keyboard transcript</button>
 <h2>Scan comparison and manual testing</h2>
 <label><input id="rememberHistory" type="checkbox"> Remember content-free comparison history and checklist across sessions</label>
 <p>Off by default. When enabled, stores the latest issue baseline and manual checklist for each page state locally. No page text or addresses are stored. Disabling clears this history.</p>
 <button id="clearHistory">Clear comparison history and checklists</button>
-<p id="status" role="status"></p></main><script src="save-settings.js"></script><script src="features.js"></script><script src="recovery.js"></script><script src="auto-mode.js"></script><script src="options.js"></script></body></html>
+<p id="status" role="status"></p></main><script src="export.js"></script><script src="save-settings.js"></script><script src="features.js"></script><script src="recovery.js"></script><script src="auto-mode.js"></script><script src="options.js"></script></body></html>
 

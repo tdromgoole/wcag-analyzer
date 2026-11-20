@@ -1,7 +1,9 @@
 # Regression Laboratory — Existing Coverage Inventory
 
 **Date:** November 19, 2026  
-**State:** Initial inventory; laboratory pages, manifest, dashboard, and complete criterion dispositions are not implemented.
+**State:** Source inventory retained; laboratory implementation and coverage now tracked alongside it.
+
+**Implementation update:** The [local laboratory](laboratory/README.md) now includes 48 isolated scenarios, expected-results manifest version 10 fixtures, all-55-criterion disposition index, dashboard and Playwright run reporter. Its 26 automated comparisons matched expectations; 22 dedicated manual evaluations remain outstanding, plus eight matched review candidates requiring human interpretation. Thirty-four criteria still need dedicated fixtures. The [criterion automation assessment](AUTOMATION-ASSESSMENT.md) maps selected rules and supplementary evidence without claiming whole-criterion automation.
 
 ## Measured scanner scope
 
@@ -23,11 +25,11 @@ The extension also has seven supplementary review-candidate checks, an on-demand
 | Coverage and outcomes | `wcag-coverage.spec.js`, `sitemap.spec.js` | 55-criterion catalog, manual/scope gates, stale evidence, failure precedence. These are status tests, not 55 independent accessible/inaccessible fixtures. |
 | Export and persistence privacy | `path-privacy.spec.js`, `report-saving.spec.js`, `saved-decisions.spec.js`, `save-settings.spec.js`, `site-report.spec.js` | Structural evidence, content exclusion, approved full paths without query/fragment/credentials, recovery and review merging. Keep these regression boundaries while moving fixtures. |
 
-Form errors/instructions, table header relationships, screen-reader announcements, multimedia alternatives, timing, multi-page processes, and complete contextual/manual coverage still need dedicated inventory and scenarios. This list does not assert those features are absent from the scanner.
+Initial form-error, table-header, announcement, multimedia, timing and multi-page examples are implemented. Complete contextual/manual coverage and broader cases remain open. This inventory does not assert that missing laboratory examples are absent from the scanner.
 
 ## Current fixture infrastructure
 
-`tests/server.js` serves a single synthetic HTML response for every URL on loopback port 4178. Most tests inject their own HTML or scripts. Preserve that default response so existing tests keep working; new isolated laboratory routes should be explicit. No secured application or external service is required.
+`tests/server.js` serves explicit local files under `/laboratory/` on loopback port 4178. Other routes retain the original synthetic response used by existing injection tests. No secured application or external service is required.
 
 Use local assets, including synthetic media/image examples. Keep illustrative dashboard examples separate from recorded actual results. Tests currently use one headless Chrome worker, and native folder permissions are mocked; production extension permission prompts still require manual verification.
 

@@ -1,0 +1,1098 @@
+{
+  "manifestVersion": "1.0",
+  "fixtureVersion": "10",
+  "viewport": {
+    "width": 1280,
+    "height": 800
+  },
+  "scope": "Isolated synthetic examples. Passing a case is not whole-criterion conformance. Counts apply to the named rule and target only.",
+  "cases": [
+    {
+      "id": "images-missing-alt",
+      "title": "Informative image without an alternative",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1"
+      ],
+      "fixture": "fixtures/images/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "image-alt",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Confirm the image is informative in the fixture context."
+    },
+    {
+      "id": "images-described",
+      "title": "Image with a contextual alternative",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1"
+      ],
+      "fixture": "fixtures/images/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "image-alt",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The automatic check confirms alternative presence only. Human review must assess its accuracy."
+    },
+    {
+      "id": "images-decorative",
+      "title": "Decorative image excluded with empty alt",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1"
+      ],
+      "fixture": "fixtures/images/decorative.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "image-alt",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Verify that the image supplies decoration only. Empty alt is not correct for informative images."
+    },
+    {
+      "id": "images-absent",
+      "title": "Text-only state with no image candidates",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1"
+      ],
+      "fixture": "fixtures/images/not-applicable.html",
+      "knownCondition": "not-applicable",
+      "expected": {
+        "outcome": "not-applicable",
+        "method": "axe",
+        "ruleId": "image-alt",
+        "bucket": "inapplicable",
+        "count": 0,
+        "target": null
+      },
+      "steps": [],
+      "manualInstructions": "No images, controls, media or other non-text content are present in this isolated state. The rule's inapplicable result does not establish whole-criterion non-applicability on other pages."
+    },
+    {
+      "id": "images-context-review",
+      "title": "Generic image description needs judgment",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1"
+      ],
+      "fixture": "fixtures/images/manual.html",
+      "knownCondition": "requires-manual-judgment",
+      "expected": {
+        "outcome": "manual",
+        "method": "inventory",
+        "ruleId": "alt-suspicious",
+        "bucket": "alerts",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Decide whether the word photo conveys the image's purpose. A review alert is not a confirmed failure."
+    },
+    {
+      "id": "contrast-low",
+      "title": "Low-contrast normal text",
+      "category": "Contrast",
+      "criterionIds": [
+        "1.4.3"
+      ],
+      "fixture": "fixtures/contrast/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "color-contrast",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Normal 16px text uses #aaa on white, below the applicable 4.5:1 threshold."
+    },
+    {
+      "id": "contrast-readable",
+      "title": "Readable normal text",
+      "category": "Contrast",
+      "criterionIds": [
+        "1.4.3"
+      ],
+      "fixture": "fixtures/contrast/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "color-contrast",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "This tests the rendered text/background pair, not all states or non-text contrast."
+    },
+    {
+      "id": "contrast-gradient-review",
+      "title": "Gradient without screenshot access",
+      "category": "Contrast",
+      "criterionIds": [
+        "1.4.3"
+      ],
+      "fixture": "fixtures/contrast/manual.html",
+      "knownCondition": "requires-manual-judgment",
+      "expected": {
+        "outcome": "manual",
+        "method": "axe",
+        "ruleId": "color-contrast",
+        "bucket": "incomplete",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "This browser-test profile has no extension capture permission. Preserve measurement uncertainty; do not infer a failure or pass. Screenshot-enabled scenarios are covered separately by existing contrast tests."
+    },
+    {
+      "id": "forms-unlabelled",
+      "title": "Input without a programmatic label",
+      "category": "Forms",
+      "criterionIds": [
+        "1.3.1",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/forms/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "label",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Inspect the input's accessible name. This does not exercise form submission."
+    },
+    {
+      "id": "forms-labelled",
+      "title": "Input with an associated label",
+      "category": "Forms",
+      "criterionIds": [
+        "1.3.1",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/forms/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "label",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Confirm the label identifies the field. Error messages and instructions require separate cases."
+    },
+    {
+      "id": "aria-invalid-role",
+      "title": "Unsupported ARIA role",
+      "category": "ARIA",
+      "criterionIds": [
+        "4.1.2"
+      ],
+      "fixture": "fixtures/aria/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "aria-roles",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The role token is intentionally invalid."
+    },
+    {
+      "id": "aria-valid-role",
+      "title": "Supported ARIA role",
+      "category": "ARIA",
+      "criterionIds": [
+        "4.1.2"
+      ],
+      "fixture": "fixtures/aria/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "aria-roles",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "This confirms role validity only; it is not a complete interaction assessment."
+    },
+    {
+      "id": "dynamic-unannounced-status",
+      "title": "Unannounced status update",
+      "category": "Dynamic content",
+      "criterionIds": [
+        "4.1.3"
+      ],
+      "fixture": "fixtures/dynamic/manual.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "With NVDA in Chrome or Edge, Tab to Complete task, activate it and record whether Task completed is announced without moving focus. This fixture lacks status semantics. Follow the NVDA protocol; automation leaves the evaluation outstanding."
+    },
+    {
+      "id": "dynamic-announced-status",
+      "title": "Status region ready before update",
+      "category": "Dynamic content",
+      "criterionIds": [
+        "4.1.3"
+      ],
+      "fixture": "fixtures/dynamic/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "With NVDA in Chrome or Edge, activate Complete task and record speech without moving focus. The status region exists before the update; actual speech still requires a human review."
+    },
+    {
+      "id": "modal-managed-focus",
+      "title": "Dialog with managed entry and return focus",
+      "category": "Modals",
+      "criterionIds": [
+        "2.1.1",
+        "2.1.2",
+        "2.4.3",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/modals/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "With NVDA, open the dialog; inspect its name, initial field focus, forward/reverse traversal, Escape/Close and return focus. Follow the NVDA protocol. DOM checks do not certify speech or complete keyboard usability."
+    },
+    {
+      "id": "modal-missing-focus",
+      "title": "Dialog leaves focus outside the modal",
+      "category": "Modals",
+      "criterionIds": [
+        "2.4.3",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/modals/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "With NVDA, open the dialog and observe focus remaining on the outside trigger. Record actual announcement/navigation behavior. Escape, Close dialog or reload resets this isolated failure."
+    },
+    {
+      "id": "keyboard-native-action",
+      "title": "Native button keyboard activation",
+      "category": "Keyboard",
+      "criterionIds": [
+        "2.1.1",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/keyboard/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "With NVDA, Tab to Choose trail and separately exercise Enter and Space. Record its announced role/name and the resulting action. Reload between trials."
+    },
+    {
+      "id": "keyboard-pointer-only",
+      "title": "Pointer-only action missing keyboard access",
+      "category": "Keyboard",
+      "criterionIds": [
+        "2.1.1",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/keyboard/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "With NVDA, use sequential Tab navigation and attempt keyboard activation. The div is intentionally not a keyboard control. Do not substitute a mouse click for the keyboard test."
+    },
+    {
+      "id": "tables-broken-headers",
+      "title": "Table cell references a missing header",
+      "category": "Tables",
+      "criterionIds": [
+        "1.3.1"
+      ],
+      "fixture": "fixtures/tables/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "td-headers-attr",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The targeted cell references missing-header rather than a header in this table. This checks the explicit association, not every aspect of table usability. The engine reports this check once on the table, so the expected count is scoped to the table element rather than the cell."
+    },
+    {
+      "id": "tables-associated-headers",
+      "title": "Table cell references its column header",
+      "category": "Tables",
+      "criterionIds": [
+        "1.3.1"
+      ],
+      "fixture": "fixtures/tables/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "td-headers-attr",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The targeted data cell references the Trail header in this table. Context and complex-table interpretation remain separate checks. The engine reports this check once on the table, so the expected count is scoped to the table element rather than the cell."
+    },
+    {
+      "id": "navigation-unnamed-link",
+      "title": "Link without an accessible name",
+      "category": "Navigation",
+      "criterionIds": [
+        "2.4.4",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/navigation/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "link-name",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The link text is deliberately hidden from the accessibility tree and no alternative accessible name is provided."
+    },
+    {
+      "id": "navigation-named-link",
+      "title": "Link with a meaningful name",
+      "category": "Navigation",
+      "criterionIds": [
+        "2.4.4",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/navigation/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "link-name",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The link is named View trail map. This automated element check does not certify every link purpose or page navigation path."
+    },
+    {
+      "id": "targets-small-crowded",
+      "title": "Small adjacent pointer targets",
+      "category": "Responsive",
+      "criterionIds": [
+        "2.5.8"
+      ],
+      "fixture": "fixtures/responsive/targets-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "target-size",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The targeted 10 by 10 CSS-pixel standalone button is only 2 pixels from another undersized target, so this fixture does not rely on the spacing or inline exception. Review real-page exceptions separately."
+    },
+    {
+      "id": "targets-sized",
+      "title": "Generous standalone pointer targets",
+      "category": "Responsive",
+      "criterionIds": [
+        "2.5.8"
+      ],
+      "fixture": "fixtures/responsive/targets-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "target-size",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The targeted button is 44 by 44 CSS pixels. The Level AA minimum is 24 by 24 CSS pixels or a qualifying exception; 44 pixels is an intentional generous fixture size, not a changed AA threshold."
+    },
+    {
+      "id": "reflow-fixed-width",
+      "title": "Ordinary text forces horizontal scrolling",
+      "category": "Responsive",
+      "criterionIds": [
+        "1.4.10"
+      ],
+      "fixture": "fixtures/responsive/reflow-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "At the declared 320 CSS-pixel viewport, inspect all ordinary text and controls for loss and two-dimensional scrolling. The 900-pixel container deliberately overflows. Geometry is checked automatically; complete criterion evaluation remains outstanding.",
+      "viewport": {
+        "width": 320,
+        "height": 800
+      }
+    },
+    {
+      "id": "reflow-wrapping",
+      "title": "Ordinary text wraps at narrow viewport",
+      "category": "Responsive",
+      "criterionIds": [
+        "1.4.10"
+      ],
+      "fixture": "fixtures/responsive/reflow-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "At the declared 320 CSS-pixel viewport, verify readable wrapping and retained information/functionality. A no-overflow geometry check is evidence, not a complete zoom/reflow certification. Evaluate real page states and exceptions separately.",
+      "viewport": {
+        "width": 320,
+        "height": 800
+      }
+    },
+    {
+      "id": "forms-error-unassociated",
+      "title": "Error description points to a missing element",
+      "category": "Forms",
+      "criterionIds": [
+        "1.3.1",
+        "3.3.1",
+        "3.3.3"
+      ],
+      "fixture": "fixtures/forms/errors-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Activate Validate code with the empty synthetic field. Inspect the error text, aria-invalid state and broken description reference. With NVDA later, record error identification and correction guidance; DOM checks do not verify the announcement."
+    },
+    {
+      "id": "forms-error-associated",
+      "title": "Error description is linked to the field",
+      "category": "Forms",
+      "criterionIds": [
+        "1.3.1",
+        "3.3.1",
+        "3.3.3"
+      ],
+      "fixture": "fixtures/forms/errors-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Activate Validate code and inspect the field-to-error reference, invalid state and correction example. Human review still needs to assess identification, relevance and actual announcement behavior."
+    },
+    {
+      "id": "spacing-clipped",
+      "title": "Spacing stress reveals clipped text",
+      "category": "Text spacing",
+      "criterionIds": [
+        "1.4.12"
+      ],
+      "fixture": "fixtures/spacing/fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "spacing",
+        "ruleId": "text-spacing",
+        "bucket": "observations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The real text-spacing stress API temporarily changes spacing and should report one scoped clipping candidate. Confirm loss visually; the observation is not an automatic whole-criterion failure. Original inline styles must be restored."
+    },
+    {
+      "id": "spacing-flexible",
+      "title": "Spacing stress permits flexible text layout",
+      "category": "Text spacing",
+      "criterionIds": [
+        "1.4.12"
+      ],
+      "fixture": "fixtures/spacing/pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "spacing",
+        "ruleId": "text-spacing",
+        "bucket": "observations",
+        "count": 0,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The stress API should find no increased clipping on the targeted flexible paragraph and restore original styles. Zero geometric candidates is not a complete WCAG pass; overlap, meaning and interaction remain human checks."
+    },
+    {
+      "id": "media-captions-missing",
+      "title": "Prerecorded warning without captions",
+      "category": "Multimedia",
+      "criterionIds": [
+        "1.2.2"
+      ],
+      "fixture": "fixtures/media/missing.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "supplemental",
+        "ruleId": "video-captions",
+        "bucket": "observations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Play the synthetic prerecorded clip. It has an audio stream with two warning tones and no captions track. The scanner should flag one review candidate, not claim a complete criterion verdict. Human review must assess the meaningful sound and required equivalents."
+    },
+    {
+      "id": "media-captions-present",
+      "title": "Prerecorded warning with captions track",
+      "category": "Multimedia",
+      "criterionIds": [
+        "1.2.2"
+      ],
+      "fixture": "fixtures/media/captions.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "supplemental",
+        "ruleId": "video-captions",
+        "bucket": "observations",
+        "count": 0,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The clip has a local captions track describing the alert tones. Track presence suppresses this structural candidate only; verify actual cue availability, timing, meaning and completeness. No whole-criterion pass is inferred."
+    },
+    {
+      "id": "media-subtitles-review",
+      "title": "Subtitle track still needs captions review",
+      "category": "Multimedia",
+      "criterionIds": [
+        "1.2.2"
+      ],
+      "fixture": "fixtures/media/subtitles.html",
+      "knownCondition": "requires-manual-judgment",
+      "expected": {
+        "outcome": "manual",
+        "method": "supplemental",
+        "ruleId": "video-captions",
+        "bucket": "observations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "A subtitles track is present, but this scanner specifically looks for a captions track. Examine whether meaningful sounds are conveyed; the attribute alone cannot establish caption quality or compliance."
+    },
+    {
+      "id": "media-silent-review",
+      "title": "Silent video requires applicability confirmation",
+      "category": "Multimedia",
+      "criterionIds": [
+        "1.2.2"
+      ],
+      "fixture": "fixtures/media/silent.html",
+      "knownCondition": "not-applicable",
+      "expected": {
+        "outcome": "manual",
+        "method": "supplemental",
+        "ruleId": "video-captions",
+        "bucket": "observations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "This generated asset has no audio track, so prerecorded audio captions are not applicable to this isolated asset. The structural scanner does not establish audio absence and must retain its review candidate rather than automatically clear the criterion. Other video-only requirements remain separate."
+    },
+    {
+      "id": "focus-indicator-hidden",
+      "title": "Suppressed keyboard focus indicator",
+      "category": "Focus",
+      "criterionIds": [
+        "2.4.7"
+      ],
+      "fixture": "fixtures/focus/indicator-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "press",
+          "target": "#before",
+          "key": "Tab"
+        }
+      ],
+      "manualInstructions": "Tab from Start keyboard sequence to the target button. It retains keyboard focus but deliberately has no visual focus change. Compare with the visible-indicator example; use Shift+Tab or Tab to leave. Record the visual observation, not merely a computed CSS value."
+    },
+    {
+      "id": "focus-indicator-visible",
+      "title": "Visible keyboard focus indicator",
+      "category": "Focus",
+      "criterionIds": [
+        "2.4.7"
+      ],
+      "fixture": "fixtures/focus/indicator-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "press",
+          "target": "#before",
+          "key": "Tab"
+        }
+      ],
+      "manualInstructions": "Tab from Start keyboard sequence to the target button. Confirm the purple outline is visible and persists while focused, then Tab onward and reverse with Shift+Tab. This example does not certify every focusable item or display mode."
+    },
+    {
+      "id": "focus-control-obscured",
+      "title": "Focused control completely covered",
+      "category": "Focus",
+      "criterionIds": [
+        "2.4.11"
+      ],
+      "fixture": "fixtures/focus/obscured-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "press",
+          "target": "#before",
+          "key": "Tab"
+        }
+      ],
+      "manualInstructions": "Tab from Start keyboard sequence. The focused target is entirely behind an opaque author-created cover that is present on load. It cannot be revealed by scrolling. Tab onward to the recovery link. Record whether the component itself is hidden; this is distinct from focus-indicator styling."
+    },
+    {
+      "id": "focus-control-unobscured",
+      "title": "Focused control outside the cover",
+      "category": "Focus",
+      "criterionIds": [
+        "2.4.11"
+      ],
+      "fixture": "fixtures/focus/obscured-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "press",
+          "target": "#before",
+          "key": "Tab"
+        }
+      ],
+      "manualInstructions": "Tab from Start keyboard sequence. Confirm that the focused target is fully visible below the opaque cover. Tab onward to the recovery link. This isolated example does not verify every viewport or application state."
+    },
+    {
+      "id": "timing-fixed",
+      "title": "Fixed synthetic time limit",
+      "category": "Timing",
+      "criterionIds": [
+        "2.2.1"
+      ],
+      "fixture": "fixtures/timing/fixed.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Start the task and observe its 30-second expiry. It has no adjustment, extension, or switch-off option that preserves the active task; Reset abandons that attempt. No timing exception is claimed. Record the lost task opportunity, then reset or reload."
+    },
+    {
+      "id": "timing-extend",
+      "title": "Extendable synthetic time limit",
+      "category": "Timing",
+      "criterionIds": [
+        "2.2.1"
+      ],
+      "fixture": "fixtures/timing/extend.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Start the task. The warning immediately provides 30 seconds to activate Extend by 30 seconds. Confirm at least ten separate extensions are available, task data stays intact, and the action works from the keyboard. Record actual warning perception separately; timer geometry and DOM do not establish announcements. Reset or reload stops the scenario."
+    },
+    {
+      "id": "process-redundant-fail",
+      "title": "Previously entered information requested again",
+      "category": "Multi-page process",
+      "criterionIds": [
+        "3.3.7"
+      ],
+      "fixture": "fixtures/process/start-fail.html",
+      "evaluatedFixture": "fixtures/process/repeat-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#sample"
+        },
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Begin at step 1, choose the supplied synthetic trail and continue. Step 2 requires the same name from memory without auto-populating it or making the prior entry selectable on that page. No essential, security or validity exception is claimed. Record the repeated-entry barrier and reset after review."
+    },
+    {
+      "id": "process-redundant-pass",
+      "title": "Previously entered information carried forward",
+      "category": "Multi-page process",
+      "criterionIds": [
+        "3.3.7"
+      ],
+      "fixture": "fixtures/process/start-pass.html",
+      "evaluatedFixture": "fixtures/process/repeat-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#sample"
+        },
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Begin at step 1, choose the supplied synthetic trail and continue. On the distinct confirmation page, verify the same information is auto-populated and editable, then complete the request. Reset clears the temporary synthetic selection. No whole-process conformance is inferred."
+    },
+    {
+      "id": "keyboard-trap",
+      "title": "Opt-in keyboard trap",
+      "category": "Keyboard",
+      "criterionIds": [
+        "2.1.2"
+      ],
+      "fixture": "fixtures/keyboard/trap.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Read the warning before starting. Start deliberately activates a Tab/Shift+Tab cycle inside two controls. Observe only a few steps. Use browser Reload (Ctrl+R) or pointer Reset to recover; no browser shortcut is intercepted. Verify that reload returns to the inactive state. A reset button that cannot be reached from the keyboard cycle does not repair the negative condition."
+    },
+    {
+      "id": "keyboard-exit",
+      "title": "Keyboard group with normal exit",
+      "category": "Keyboard",
+      "criterionIds": [
+        "2.1.2"
+      ],
+      "fixture": "fixtures/keyboard/exit.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [
+        {
+          "action": "click",
+          "target": "#trigger"
+        }
+      ],
+      "manualInstructions": "Start the group, Tab through both controls and onward to the return link. Reverse navigation must also leave the group. Verify reset returns to the inactive state. Human assessment remains separate from bounded browser assertions."
+    },
+    {
+      "id": "controls-image-fail",
+      "title": "Image button without an alternative",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/controls/image-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "fail",
+        "method": "axe",
+        "ruleId": "input-image-alt",
+        "bucket": "violations",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "The image input has no alt, title or ARIA label. Verify the missing functional name. This test does not claim that all image-button contrast is measured."
+    },
+    {
+      "id": "controls-graphic-fail",
+      "title": "Graphical arrow with insufficient contrast",
+      "category": "Contrast",
+      "criterionIds": [
+        "1.4.11"
+      ],
+      "fixture": "fixtures/controls/graphic-fail.html",
+      "knownCondition": "fail",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Inspect the arrow against its white background as visual information identifying this control action. The fixture has pale solid fill. Verify relevant states and exceptions, including the functional expanded/collapsed state. A passing accessible-name rule or text/background ratio does not establish non-text contrast conformance."
+    },
+    {
+      "id": "controls-image-pass",
+      "title": "Image button with a functional alternative",
+      "category": "Images",
+      "criterionIds": [
+        "1.1.1",
+        "4.1.2"
+      ],
+      "fixture": "fixtures/controls/image-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "pass",
+        "method": "axe",
+        "ruleId": "input-image-alt",
+        "bucket": "passes",
+        "count": 1,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Verify that the alternative describes the button action, not just the image. The rule confirms naming structure only; visual contrast and other control states remain separate."
+    },
+    {
+      "id": "controls-graphic-pass",
+      "title": "Graphical arrow with strong contrast",
+      "category": "Contrast",
+      "criterionIds": [
+        "1.4.11"
+      ],
+      "fixture": "fixtures/controls/graphic-pass.html",
+      "knownCondition": "pass-example",
+      "expected": {
+        "outcome": "manual",
+        "method": "manual",
+        "ruleId": null,
+        "bucket": null,
+        "count": null,
+        "target": "#case-target"
+      },
+      "steps": [],
+      "manualInstructions": "Inspect the arrow against its white background as visual information identifying this control action. The fixture has dark solid fill. Verify relevant states and exceptions, including the functional expanded/collapsed state. A passing accessible-name rule or text/background ratio does not establish non-text contrast conformance."
+    }
+  ],
+  "manualEnvironment": {
+    "screenReader": "NVDA",
+    "browsers": [
+      "Chrome",
+      "Edge"
+    ],
+    "protocol": "manual-nvda.html",
+    "verified": false
+  }
+}

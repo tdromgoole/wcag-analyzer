@@ -69,7 +69,7 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 ### 0.4 AI Remediation Compatibility
 
 - [ ] Identify every JSON field used by the existing AI remediation process.
-- [ ] Preserve file paths, selectors, element ancestry, rule identifiers, and actionable findings.
+- [x] Preserve file paths, selectors, element ancestry, rule identifiers, and actionable findings. User clarified page URL paths and structural DOM locators only; application source filenames stay outside extension evidence.
 - [x] Verify nested elements without IDs or classes can be reliably located. Fixed nested axe shadow-target traversal; identifier-free ancestry and real inspector selection regression passed.
 - [x] Confirm that historical selectors are treated as snapshots rather than permanent identifiers. DOM-move regression verifies changed current locators and preserved old snapshots.
 - [x] Version the JSON schema before introducing breaking changes. Schema 2.1 and legacy-reader/normalization behavior documented in the shared contract.
@@ -91,13 +91,13 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 
 ### 0A.1 Structure and Existing Test Inventory
 
-- [ ] Inventory existing Playwright tests and synthetic fixtures; reuse proven scenarios rather than duplicating them.
+- [x] Inventory existing Playwright tests and synthetic fixtures; reuse proven scenarios rather than duplicating them. [Inventory](LABORATORY-INVENTORY.md) informed the first image/contrast/ARIA/form fixtures.
 - [x] Measure the current automated rule/check coverage; do not assume the quoted estimate of roughly nine rules describes the implementation. **Baseline:** 70 selected axe rules, 55 catalogued criteria; see [laboratory inventory](LABORATORY-INVENTORY.md). Complete per-scenario coverage remains open.
-- [ ] Create a local index page linking to isolated test pages by category.
-- [ ] Organize scenarios around all 55 catalogued WCAG 2.2 A/AA criteria, documenting unsupported and manual-only coverage explicitly.
-- [ ] Keep individual scenarios isolated so intentional failures do not contaminate unrelated expectations.
-- [ ] Add an optional combined stress-test page separately from deterministic regression fixtures.
-- [ ] Use synthetic content and local assets only; require no secured-application login, database, application source, or sensitive data.
+- [x] Create a local index page linking to isolated test pages by category. See [laboratory guide](laboratory/README.md).
+- [x] Organize scenarios around all 55 catalogued WCAG 2.2 A/AA criteria, documenting unsupported and manual-only coverage explicitly. Coverage index currently records 20 linked criteria as partial/manual-only and 35 as not-yet-covered.
+- [x] Keep individual scenarios isolated so intentional failures do not contaminate unrelated expectations. Each manifest scenario has a separate route or process and target-scoped assertions.
+- [x] Add an optional combined stress-test page separately from deterministic regression fixtures. Local generator and separate 10/100-group test lane are implemented; no additional criterion coverage is claimed.
+- [x] Use synthetic content and local assets only; require no secured-application login, database, application source, or sensitive data.
 
 ### 0A.2 Scenario Categories
 
@@ -119,40 +119,58 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 ### 0A.3 Expected Outcomes and Machine-Readable Manifest
 
 - [ ] Provide Fail, Pass, and Not Applicable scenarios wherever each is meaningful; include Needs Manual Review cases for human judgment and unsupported measurements.
-- [ ] Separate the scenario's known accessibility condition from the expected scanner response. A known failure may require manual review when automation cannot establish it.
-- [ ] Define a versioned manifest with stable test ID, category, criterion IDs, fixture URL/state, expected condition, expected scanner outcome, relevant rule/check IDs, expected finding counts, and evaluation method.
-- [ ] Scope counts to the intended rule and target; account explicitly for unrelated baseline findings rather than assuming one total violation per scenario.
+- [x] Separate the scenario's known accessibility condition from the expected scanner response. A known failure may require manual review when automation cannot establish it.
+- [x] Define a versioned manifest with stable test ID, category, criterion IDs, fixture URL/state, expected condition, expected scanner outcome, relevant rule/check IDs, expected finding counts, and evaluation method.
+- [x] Scope counts to the intended rule and target; account explicitly for unrelated baseline findings rather than assuming one total violation per scenario.
 - [ ] Include interaction steps, viewport, timing conditions, applicable exceptions, and manual instructions where needed.
-- [ ] Record reasons for Not Applicable expectations. Absence of findings must not be interpreted as non-applicability or a whole-criterion pass.
-- [ ] Identify unsupported scenarios and coverage gaps explicitly; prevent silent skips from appearing as passes.
+- [x] Record reasons for Not Applicable expectations. Absence of findings must not be interpreted as non-applicability or a whole-criterion pass.
+- [x] Identify unsupported scenarios and coverage gaps explicitly; prevent silent skips from appearing as passes.
 - [ ] Review fixture correctness independently of scanner output; do not change expectations merely to match current behavior.
 
 ### 0A.4 Interactive Dashboard
 
-- [ ] Display cases with filters for All, Fail, Pass, Needs Manual Review, and Not Applicable.
-- [ ] Show each case's description, criteria, expected outcome, and expected findings.
-- [ ] Display actual results only after a recorded test run; label illustrative or unrun cases clearly.
-- [ ] Compare expected and actual results, highlighting missed failures, false positives, and unexpected review outcomes.
-- [ ] Associate actual results with run time, scanner version, and evaluated state so stale results are visible.
-- [ ] Make the dashboard itself keyboard accessible and keep deliberate failures on their fixture pages.
+- [x] Display cases with filters for All, Fail, Pass, Needs Manual Review, and Not Applicable.
+- [x] Show each case's description, criteria, expected outcome, and expected findings.
+- [x] Display actual results only after a recorded test run; label illustrative or unrun cases clearly.
+- [x] Compare expected and actual results, highlighting missed failures, false positives, and unexpected review outcomes. Imported comparisons are recomputed against current scoped expectations.
+- [x] Associate actual results with run time, scanner version, and evaluated state so stale results are visible. Version mismatches are flagged; matching versions still do not establish freshness.
+- [x] Make the dashboard itself keyboard accessible and keep deliberate failures on their fixture pages. Automated A/AA scan and desktop/mobile layout checks passed; no screen-reader usability certification implied.
 
 ### 0A.5 Interaction and Manual Scenarios
 
-- [ ] Add JavaScript-driven states for dialogs, dynamic updates, form errors, and focus management.
-- [ ] Add timing, multimedia, responsive, and multi-page/process scenarios where static HTML is insufficient.
-- [ ] Provide human evaluation instructions and expected evidence for screen-reader, contextual, and other manual checks.
-- [ ] Make deliberate keyboard traps and disruptive scenarios opt-in, isolated, and resettable, with a clear recovery path.
+- [x] Add JavaScript-driven states for dialogs, dynamic updates, form errors, and focus management. Positive/negative fixtures and independent DOM/focus/action checks are implemented; human verification remains separate.
+- [x] Add timing, multimedia, responsive, and multi-page/process scenarios where static HTML is insufficient. Initial pairs are implemented; broader criterion coverage remains open.
+- [x] Provide human evaluation instructions and expected evidence for screen-reader, contextual, and other manual checks. Per-case instructions, blank records and a shared protocol cover existing scenarios; evaluations remain unperformed.
+- [x] Make deliberate keyboard traps and disruptive scenarios opt-in, isolated, and resettable, with a clear recovery path. Trap activation is explicit; browser Reload/pointer Reset recover it, and timers start only on request.
 - [ ] Preserve unsupported gradients as manual review unless the scanner can reliably evaluate the specific scenario.
 
 ### 0A.6 Playwright Regression Integration
 
-- [ ] Validate manifest structure, unique IDs, criterion references, and fixture availability.
-- [ ] Connect the manifest to the existing Playwright suite and run the real scanner/export pipeline against controlled fixtures.
-- [ ] Assert expected failures, passing element checks, manual-review outcomes, and reliable non-applicability separately.
-- [ ] Verify fixture exports comply with the shared evidence/privacy contract.
-- [ ] Produce machine-readable run results for dashboard comparison and future GitLab integration.
-- [ ] Establish a repeatable laboratory baseline before expanding automation in Phase 2.
-- [ ] Require representative laboratory regression checks for scanner accuracy or performance changes.
+- [x] Validate manifest structure, unique IDs, criterion references, and fixture availability.
+- [x] Connect the manifest to the existing Playwright suite and run the real scanner/export pipeline against controlled fixtures.
+- [x] Assert expected failures, passing element checks, manual-review outcomes, and reliable non-applicability separately.
+- [x] Verify fixture exports comply with the shared evidence/privacy contract. Generated exports pass the current normalization boundary; this is not arbitrary-import schema certification.
+- [x] Produce machine-readable run results for dashboard comparison and future GitLab integration. Reporter writes test-results/laboratory-run.json.
+- [x] Establish a repeatable laboratory baseline before expanding automation in Phase 2. Initial 13-case baseline has 12 matched scanner expectations and one manual-outstanding evaluation.
+- [x] Require representative laboratory regression checks for scanner accuracy or performance changes. Documented in laboratory guide and included in npm test.
+
+### 0A.7 Real NVDA Automation with Guidepup
+
+**Direction:** Use real NVDA automation to expand observable screen-reader regression coverage. The current browser-only suite has not run NVDA. Existing manual-outstanding classifications describe current coverage, not a permanent inability to automate these checks.
+
+- [x] Add optional development dependencies for `@guidepup/guidepup` and `@guidepup/playwright`, retaining JavaScript. Pinned versions and setup state are recorded in [NVDA-SETUP.md](NVDA-SETUP.md).
+- [ ] Create a separate opt-in Windows test configuration using Guidepup's headed, serial Playwright configuration; keep the existing headless suite available independently.
+- [ ] Verify the installed Guidepup release's NVDA assets and browser support before selecting the exact Chrome/Edge test matrix.
+- [ ] Configure the selected Windows test machine and install its supported NVDA assets using the official Guidepup setup workflow. Track workplace setup separately; no machine configuration has been performed by this planning update.
+- [ ] Pilot a positive announced-status fixture, navigation/control naming, and dialog entry/return behavior using actual NVDA control and spoken-output observations.
+- [ ] Add negative regressions with bounded observation windows; an absence-of-announcement assertion must distinguish missing speech from failed capture, focus or NVDA startup.
+- [ ] Use bounded navigation and explicit readiness checks rather than unbounded loops or guessed delays.
+- [ ] Retain speech output, assertions, browser/NVDA/Guidepup versions, fixture state, run timestamps and failure diagnostics as clearly labeled automated screen-reader evidence.
+- [ ] Separate browser DOM/focus results, real-NVDA automated results, and human review in reports. A passing speech assertion does not establish whole-criterion conformance or equivalent behavior in untested environments.
+- [ ] Leave existing evaluations outstanding until actual NVDA runs succeed; do not relabel prepared tests, skipped runs or virtual-screen-reader results as real NVDA verification.
+- [ ] Retain human review for contextual meaning, usability and behaviors not covered by the automated assertions.
+
+**References:** [Guidepup NVDA testing](https://www.guidepup.dev/docs/screen-reader-testing/testing-nvda), [Playwright integration](https://github.com/guidepup/guidepup-playwright), [machine setup](https://www.guidepup.dev/docs/guides/machine-setup).
 
 **Acceptance criteria:** Isolated fixtures and a validated manifest provide reproducible expected-versus-actual checks. Existing tests continue to pass. Every criterion has a documented coverage disposition, including manual-only or unsupported cases; the laboratory does not claim exhaustive WCAG coverage or certify conformance.
 
@@ -164,21 +182,21 @@ The [Phase 0 architecture and compliance evidence supplement](PHASE-0-PLAN.md) r
 
 ### 1.1 Results Filtering
 
-- [ ] Add a **Needs Attention / Show All** toggle.
-- [ ] Default to Needs Attention.
-- [ ] Hide informational findings that require no action.
-- [ ] Apply consistent filtering across all tabs, including ARIA.
-- [ ] Keep all findings available through Show All.
-- [ ] Ensure filtering never deletes or changes underlying evidence.
+- [x] Add a **Needs Attention / Show All** toggle.
+- [x] Default to Needs Attention.
+- [x] Hide informational findings that require no action. Informational inventories and passing checks are hidden; detected issues, incomplete results and explicit review candidates remain available.
+- [x] Apply consistent filtering across all tabs, including ARIA. Findings categories and their Details/Reference/Order/Structure views share the filter. Task, checklist, history and reporting views retain their necessary context.
+- [x] Keep all findings available through Show All. Totals remain unfiltered; filtered keyboard order retains original sequence numbers.
+- [x] Ensure filtering never deletes or changes underlying evidence. Exact exported JSON equality is verified before/after filter changes; all criterion, general and scope review controls remain available.
 
 ### 1.2 Performance Improvements
 
-- [ ] Optimize repeated DOM traversal.
-- [ ] Investigate caching reusable scan calculations.
-- [ ] Reduce unnecessary pixel analysis where safe.
+- [x] Optimize repeated DOM traversal. Export-local sibling/ancestry caches reduce repeated traversal; further pipeline work remains possible.
+- [x] Investigate caching reusable scan calculations. Per-element technical evidence is reused within one synchronous export and discarded before the next. [Before/after measurements](PERFORMANCE-BASELINE.md) and freshness tests cover the initial optimization.
+- [x] Reduce unnecessary pixel analysis where safe. Exact numeric color keys avoid repeated per-pixel string allocations while retaining all sampled pixels, thresholds, edge/interior counts and histogram diagnostics. Equivalent rendered evidence and a single-failing-pixel regression verify the change.
 - [ ] Avoid redundant checks of the same elements.
 - [ ] Improve responsiveness during long-running scans.
-- [ ] Preserve scan accuracy when optimizing.
+- [x] Preserve scan accuracy when optimizing. Current export optimization retains equivalent complete evidence and passes all 181 browser regressions; future optimizations require the same checks.
 
 **Current baseline:** Approximately 2–10 seconds per scan, depending on page size.
 
@@ -202,8 +220,8 @@ For example, video-related criteria may be marked Not Applicable when the page a
 
 ### 2.2 Expand Automated Testing
 
-- [ ] Review the existing manual-check list.
-- [ ] Identify criteria that can be fully or partially automated.
+- [x] Review the existing manual-check list. [Criterion assessment](AUTOMATION-ASSESSMENT.md) maps all 55 criteria and retains human instructions.
+- [x] Identify criteria that can be fully or partially automated. Current selected rules provide partial evidence for 23 criteria, with supplementary evidence extending to 25. This does not establish complete criterion automation or automatic applicability.
 - [ ] Build additional scanners where technically feasible.
 - [ ] Retain manual evaluation where automation cannot establish compliance.
 - [ ] Identify relevant elements even when the automated engine cannot evaluate them.
@@ -214,7 +232,7 @@ For example, video-related criteria may be marked Not Applicable when the page a
 - [ ] Preserve the existing image-based contrast scanner.
 - [ ] Verify handling of antialiasing and partially blended edge pixels.
 - [ ] Preserve successful testing of white text over a charcoal overlay on an image.
-- [ ] Add regression tests for image buttons and other graphical controls.
+- [x] Add regression tests for image buttons and other graphical controls. Naming pairs and separate graphical-arrow contrast examples are in fixture version 10; non-text conformance remains a human assessment.
 - [ ] Investigate gradient-aware contrast analysis.
 - [ ] Keep unsupported gradients marked for manual review until reliable automation exists.
 - [ ] Verify contrast calculations against applicable WCAG requirements.
@@ -238,13 +256,16 @@ For example, video-related criteria may be marked Not Applicable when the page a
 
 ### 3.1 Auditor Information
 
-- [ ] Add first-name and last-name fields to extension settings.
-- [ ] Save the auditor's entered information locally for convenience.
-- [ ] Include auditor attribution with scan and manual-review events.
-- [ ] Consider a stable locally generated auditor identifier.
-- [ ] Clearly distinguish self-declared identity from authenticated identity.
-- [ ] Do not retrieve identity from the secured application's login session.
-- [ ] Design for future mapping to authenticated application users.
+- [x] Confirm whether a missing auditor name should block scanning or produce explicitly unknown attribution. User selected allowing scans with unknown attribution.
+- [x] Add first-name and last-name fields to extension settings.
+- [x] Save the auditor's entered information locally for convenience.
+- [x] Include auditor attribution with scan and manual-review events. Includes keyboard assessments; preserved/restored decisions retain their own actor, while unknown legacy actors remain unknown.
+- [x] Consider a stable locally generated auditor identifier. UUID v4 persists across corrections; clear/switch creates a new identity on the next named save.
+- [x] Clearly distinguish self-declared identity from authenticated identity. Settings disclosure and structured identityType/authenticated fields make the boundary explicit.
+- [x] Do not retrieve identity from the secured application's login session. Only the explicitly entered local profile is used.
+- [x] Design for future mapping to authenticated application users. Stable local IDs and immutable attribution snapshots are documented in the contract; authenticated mapping remains future work.
+- [x] Confirm local-profile scope. Auditors use separate browser profiles/computers; no shared-auditor picker is required.
+- [x] Confirm ID portability. User selected installation-specific IDs; mapping the same person across computers belongs to the later work application. No profile-transfer feature is required.
 
 Auditor names are personal information and must be handled as an explicitly disclosed exception to the extension's otherwise content-free technical exports.
 
@@ -418,3 +439,18 @@ The project is complete when:
 | November 19, 2026 | Legacy compatibility and performance baseline | Supported legacy staging/queue copies normalize alternative text and URL secrets while retaining findings/reviews, with prior-ID linkage. Unsupported raw fields fail visibly without modifying originals. Added [synthetic benchmark](PERFORMANCE-BASELINE.md), identifying export construction as the largest measured large-page stage. | Full regression verification underway. Await decision on JavaScript versus a separate TypeScript migration; real screenshot/browser-file timings and comprehensive untrusted-input schema validation remain open. |
 | November 19, 2026 | Legacy normalization verified | All 122 regression tests passed; build succeeded. Read-only normalization of the actual saved schema 2.0 sample retained its violation-rule count and removed all alternativeText fields without modifying its original file. | Await JavaScript/TypeScript sequencing decision. Continue scoped privacy/schema and screenshot-performance work; workplace application timing checks are recorded separately. |
 | November 19, 2026 | Language and structural compatibility | User confirmed keeping JavaScript and tracking TypeScript migration separately. [Compatibility assessment](REMEDIATION-COMPATIBILITY.md) records a discovered/fixed nested axe shadow-target bug across export, inspector, link and contrast traversal. Identifier-free ancestry, historical-locator preservation and actual shadow-node selection tests passed. | Full regression validation underway. Clarify whether “file paths” includes app source filenames; work-app consumer inventory remains a workplace dependency. |
+| November 19, 2026 | Path scope clarified | User confirmed page URL paths and structural DOM locators only; application source filenames remain outside extension evidence. Updated the shared contract and compatibility assessment. | Continue the local laboratory; external work-app field consumers remain tracked at work. |
+| November 19, 2026 | Laboratory foundation | Built local dashboard, 13 isolated synthetic fixtures, a validated manifest and all-55-criterion disposition index, real scanner/export comparisons, portable run reporter, result import, stale/mismatch handling and desktop/mobile QA. All 139 regression tests passed; initial laboratory results contain 12 matched expectations and one manual-outstanding evaluation. | Expand keyboard/focus/dialog/media/responsive cases and optional stress page. Confirm target manual screen-reader/browser environment. Fifty criteria still lack dedicated laboratory fixtures; partial examples do not establish conformance. |
+| November 19, 2026 | NVDA interaction scenarios | User selected NVDA with Chrome or Edge and will perform human verification at work. Added five positive/negative status, dialog and keyboard fixtures, version 2 manifest, accessible manual protocol, blank review template and DOM/focus/action regressions. All 23 laboratory tests passed. | Work follow-ups track six unperformed manual evaluations. Current scope: 18 fixtures, 12 matched automated expectations, eight linked criteria and 47 criteria awaiting dedicated fixtures. |
+| November 19, 2026 | Real screen-reader automation direction | Verified official Guidepup support for real Windows NVDA control, speech-output assertions and Playwright integration. Added a separate opt-in NVDA automation lane to Phase 0A. | Select/configure the workplace Windows runner and pilot actual NVDA tests. No Guidepup packages/assets installed, machine settings changed, or real NVDA verification claimed by this update. |
+| November 19, 2026 | Local NVDA installed; testing deferred | Installed pinned Guidepup development dependencies and portable NVDA 2026.3 assets. Initial interactive smoke tests did not verify the fixture heading. User requested testing later; the queued follow-up was blocked and did not run. [Setup state](NVDA-SETUP.md) distinguishes installed assets from unverified profile/test drafts. | Leave NVDA preparation and execution deferred. Continue browser-only development; no real NVDA accessibility checks are marked verified. |
+| November 19, 2026 | Table and navigation regression pairs | Added passing/failing table-header and link-name fixtures, fixture version 3 and a reusable coverage-index generator. Confirmed the table rule reports at table level and corrected target scoping without changing accessibility expectations. All 27 browser-only laboratory tests passed. | Current scope: 22 cases, 16 matched scanner expectations, six manual-outstanding evaluations, nine linked criteria and 46 awaiting dedicated fixtures. NVDA testing remains deferred. |
+| November 19, 2026 | Responsive regression pairs | Added crowded/sized pointer targets and narrow-viewport fixed/wrapping text, fixture version 4, per-case viewport validation/recording, and independent size/gap/overflow assertions. All 32 laboratory tests passed. Reflow evaluations remain manual-outstanding; imported results from a different viewport cannot appear matched. | Current scope: 26 cases, 18 matched scanner expectations, eight manual-outstanding evaluations, 11 linked criteria and 44 awaiting dedicated fixtures. NVDA testing remains deferred. |
+| November 19, 2026 | Validation and spacing regression pairs | Added form error association pairs and real text-spacing stress fixtures, version 5. Checks verify visible/linked error feedback, scoped clipping candidates, exact style restoration and incomplete criterion status. All 37 laboratory tests passed; blank review template now includes every manual-outcome case. | Current scope: 30 cases, 20 matched scanner expectations, ten manual-outstanding evaluations, 14 linked criteria and 41 awaiting dedicated fixtures. Four matched review-candidate cases also need human interpretation. NVDA testing remains deferred. |
+| November 19, 2026 | Multimedia regression scenarios | Added four isolated media cases, locally generated synthetic WebM assets, caption/subtitle tracks and fixture version 6. Browser tests verify decoding, audio-track presence/absence, loaded caption cues and supplemental review candidates. All 165 browser regression tests passed, including 42 laboratory tests. | Current scope: 34 cases, 24 matched scanner expectations, ten manual-outstanding evaluations, 15 linked criteria and 40 awaiting dedicated fixtures. Eight matched review candidates also need human interpretation; workplace checklist and blank template updated. NVDA testing remains deferred. |
+| November 19, 2026 | Keyboard focus regression pairs | Added suppressed/visible focus-indicator and covered/uncovered focused-control fixtures, version 7. Manifest supports bounded keyboard steps. Independent checks verify keyboard focus, styling, opaque cover geometry/stacking and forward/reverse recovery; inspected focused-state screenshots. All 47 browser-only laboratory tests passed. | Current scope: 38 cases, 24 matched scanner expectations, 14 manual-outstanding evaluations, 17 linked criteria and 38 awaiting dedicated fixtures. Blank template contains 22 unperformed reviews, including eight matched review candidates. Workplace checklist updated; NVDA testing remains deferred. |
+| November 19, 2026 | Timing, process and opt-in scenarios | Added explicit-start timing pairs, ten keyboard-operable extensions, a real two-page redundant-entry process and opt-in keyboard-cycle pairs. Bounded browser assertions verify expiry/reset, navigation, synthetic state transfer and recovery. Added a separate optional 10/100-group stress profile; both stress tests passed. | Current scope: 44 manifest cases, 24 matched scanner expectations, 20 manual-outstanding evaluations, 20 linked criteria and 35 awaiting fixtures. The version 9 template has 28 unperformed reviews. NVDA stays deferred. Final combined browser verification follows dashboard state-guard changes. |
+| November 19, 2026 | Filtering and export performance verified | Implemented default Needs Attention / Show All across findings inventories, including ARIA, with original order numbers, unfiltered totals, retained manual controls and exact export equality. Fixed Reference rendering for inventory nodes without axe check arrays. Export-local caches reduced the large synthetic export stage from 574.8–588.4 ms to 113.3–123.1 ms without reducing report bytes; original/optimized evidence comparisons and freshness regressions passed. All 181 browser tests, both optional stress profiles and the extension build passed. | Await the auditor policy answer: allow unknown attribution or require first/last name before scanning. Remaining performance work, broader laboratory coverage and later phases remain open. NVDA stays deferred. |
+| November 19, 2026 | Optional auditor attribution verified | User approved unnamed scans. Added local first/last-name settings and stable UUIDs, explicit self-declared identity disclosure, scan-start attribution and independent manual/keyboard decision attribution. Restoration and preserved events retain original actors; entering/correcting/clearing a profile never relabels earlier evidence. Strict attribution fields reject unknown metadata and authenticated claims. All 185 browser tests passed, the final four attribution tests passed, and the extension build succeeded. | Clarify whether auditors share a browser profile before adding a saved-auditor picker. Current single-profile corrections retain the ID; clearing/switching creates a new ID on the next named save. NVDA remains deferred. |
+| November 19, 2026 | Criterion and control coverage | Added functional image-input naming pairs and graphical-arrow contrast pairs, fixture version 10. Both graphical examples pass naming while differing in visual contrast; human non-text review remains outstanding. Added observed element-check/unique-target/missing-locator/limit summaries without changing criterion status. The all-55 criterion assessment maps 70 selected rules to partial evidence for 23 criteria, extended to 25 by supplementary checks. All 191 browser tests, both stress profiles and the extension build passed. | Current laboratory: 48 cases, 26 matched scanner expectations, 22 dedicated manual evaluations outstanding, 21 linked criteria and 34 awaiting fixtures. Thirty blank human review records remain unperformed; automatic criterion-wide non-applicability is not claimed. |
+| November 19, 2026 | Contrast optimization verified; paused | Exact numeric color keys retain all pixels and identical contrast diagnostics while avoiding repeated string allocations. The rare interior-pixel regression passed. All 192 browser tests, both optional stress profiles and the extension build passed. User confirmed installation-specific auditor IDs and cancellation that retains the completed scan with only an interrupted-attempt record. | Paused at user request. Resume from RESUME-NOTES.md: Cancel scan investigation only; no cancellation code exists yet. The inspector is hidden during measurement, so cancellation reachability must be resolved without contaminating contrast. NVDA remains deferred. |

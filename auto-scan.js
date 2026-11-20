@@ -110,6 +110,7 @@
         summary: Object.fromEntries(['violations','incomplete','passes','inapplicable'].map(key => [key, { rules: results[key].length, elements: results[key].reduce((sum, rule) => sum + rule.nodes.length, 0) }])),
         inventory: accessLensInventory(), results
       };
+      raw.attribution = enabled.attribution || null;
       const report = accessLensExport(raw, scannedAddress); report.pageState = state;
       report.pageIdentity.pageKey = (await accessLensFilename(scannedAddress)).slice(12, -5);
       report.completeness.durationMs = Date.now() - scanStarted;

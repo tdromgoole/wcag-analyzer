@@ -1,0 +1,5 @@
+(() => {
+ const key='access-lens-laboratory-trail', start=document.querySelector('#process'), confirmation=document.querySelector('#confirmation');
+ if(start){sessionStorage.removeItem(key);document.querySelector('#sample').onclick=()=>{document.querySelector('#trail').value='cedar';};start.onsubmit=event=>{event.preventDefault();if(document.querySelector('#trail').value!=='cedar')return;sessionStorage.setItem(key,'Cedar Loop');location.href='repeat-'+start.dataset.mode+'.html';};}
+ if(confirmation){const value=sessionStorage.getItem(key);if(value!=='Cedar Loop'){location.replace('start-'+confirmation.dataset.mode+'.html');return;}if(confirmation.dataset.mode==='pass')document.querySelector('#case-target').value=value;confirmation.onsubmit=event=>{event.preventDefault();document.querySelector('#outcome').textContent='Synthetic request completed.';sessionStorage.removeItem(key);};document.querySelector('#reset').onclick=()=>{sessionStorage.removeItem(key);location.href='start-'+confirmation.dataset.mode+'.html';};}
+})();

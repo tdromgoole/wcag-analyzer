@@ -35,6 +35,7 @@
       // those from the new copy; reject raw/unknown report formats rather than
       // pretending that an arbitrary input's privacy label is trustworthy.
       const roots = new Set(['schemaVersion','pagePath','scanId','privacy','tool','scannedAt','scope','summary','completeness','contrastAnalysis','scanPasses','supplementalChecks','pageIdentity','inventory','results','wcagCoverage','pageState','manualChecks','keyboardTest','comparison','textSpacingTest']);
+      roots.add('attribution');
       if (!report || Object.keys(report).some(key => !roots.has(key))) throw this.failure('UNSAFE_EVIDENCE');
       const copy = JSON.parse(JSON.stringify(report));
       const forbidden = new Set(['html','text','attributes','value','failureSummary','message','relatedNodes','rawHTML','dataUrl','screenshot','credentials','sourceMetadata','applicationBuild','commitHash']);
@@ -42,6 +43,11 @@
       const visit = value => {
         if (!value || typeof value !== 'object') return;
         for (const key of Object.keys(value)) {
+          if (key === 'attribution') {
+            try { value[key] = value[key] == null ? null : accessLensAttribution(value[key]); }
+            catch { throw this.failure('UNSAFE_EVIDENCE'); }
+            continue;
+          }
           if (key === 'alternativeText') { delete value[key]; removed = true; continue; }
           if (forbidden.has(key)) throw this.failure('UNSAFE_EVIDENCE');
           if (key === 'target' && Array.isArray(value[key])) {
@@ -99,7 +105,7 @@
       const timestamp = value => Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
       const base = { schemaVersion: '1.0', snapshotId: entry.id, filename: entry.filename,
         scanId: report.scanId || `legacy:${entry.filename}:${report.scannedAt || 'unknown'}`, recordedAt: entry.recordedAt,
-        attribution: null };
+        attribution: report.attribution || null };
       const outcomes = Object.fromEntries(['violations', 'incomplete', 'passes', 'inapplicable'].map(bucket => [bucket,
         (report.results?.[bucket] || []).reduce((total, rule) => total + (rule.nodes?.length || 0), 0)]));
       const events = [{ ...base, eventId: `${entry.id}:snapshot`, eventType: 'scan-evidence-preserved', occurredAt: timestamp(report.scannedAt), outcomes }];
@@ -107,11 +113,11 @@
         if (!/^(?:[1-4]\.\d{1,2}\.\d{1,2}|keyboard|focus|dialogs|zoom|reader|content|scope-(?:pages|processes|support|interference|set))$/.test(checkId) ||
           !['pass', 'fail', 'not-applicable', 'not-tested'].includes(review?.status) || !timestamp(review.checkedAt)) continue;
         events.push({ ...base, eventId: `${entry.id}:review:${checkId}`, eventType: 'manual-review-evidence-preserved',
-          occurredAt: timestamp(review.checkedAt), checkId, status: review.status });
+          occurredAt: timestamp(review.checkedAt), checkId, status: review.status, attribution: review.attribution || null });
       }
       const review = report.keyboardTest?.assessment;
       if (['pass', 'fail', 'not-reviewed'].includes(review?.status) && timestamp(review.checkedAt)) events.push({ ...base,
-        eventId: `${entry.id}:keyboard-review`, eventType: 'keyboard-review-evidence-preserved', occurredAt: timestamp(review.checkedAt), status: review.status });
+        eventId: `${entry.id}:keyboard-review`, eventType: 'keyboard-review-evidence-preserved', occurredAt: timestamp(review.checkedAt), status: review.status, attribution: review.attribution || null });
       return events;
     },
     async preservedEvidence() {

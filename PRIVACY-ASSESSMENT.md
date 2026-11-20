@@ -9,6 +9,8 @@ Follow-up validation passed all 122 regression tests. A read-only normalization 
 
 ## Data boundaries
 
+**Auditor update:** Settings now stores an optional self-declared first/last name and local UUID. New scans and human review decisions carry independent attribution snapshots; unknown and legacy actors are not filled retroactively. This is an explicit personal-information exception to content-free technical evidence. The validator permits only the documented name/ID/type/authentication fields, never application-login identity. Clearing the local profile does not rewrite historical evidence or establish a retention/deletion policy.
+
 | Boundary | Verified behavior | Remaining limit |
 |---|---|---|
 | DOM scanning | Reads text, attributes and form semantics transiently for analysis and inspector display | The literal requirement to never capture/read content is incompatible with existing analysis; persistence/export is the enforceable boundary |

@@ -128,6 +128,15 @@
   let exportReport = null;
   let exportFilename = null;
   let report = null, category = 'violations', selected = null, disposed = false, frame, view = 'Details';
+  let attentionOnly = true, attentionElements = new Set(), attentionRuleCache = new WeakMap();
+  async function auditorAttribution() {
+    if (globalThis.chrome?.runtime?.id) {
+      const response = await accessLensFeatures.sendRuntime({ type: 'access-lens-attribution' });
+      if (response?.error) throw new Error('Auditor settings could not be read. Open Settings and retry.');
+      return accessLensAttribution(response?.attribution);
+    }
+    return await globalThis.accessLensSettings?.auditor?.() || null;
+  }
   const hiddenGroups = new Set();
   const labels = { violations: 'Issues', incomplete: 'Needs review', passes: 'Passed checks', inapplicable: 'Not applicable' };
   const escape = (s) => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -142,20 +151,45 @@
   }
   viewSelect.onchange = async () => { view=viewSelect.value; selected=null; if(['Sitemap','Site report'].includes(view)) await refreshSitemap(); if(!disposed) { if (view === 'Site report') await loadSavedSiteReport(); else render(); } };
   tabs.append(viewLabel, viewSelect);
+  const filterLabel = document.createElement('label'); filterLabel.textContent = 'Results'; filterLabel.htmlFor = 'findingFilter';
+  const findingFilter = document.createElement('select'); findingFilter.id = 'findingFilter';
+  for (const [value, text] of [['attention', 'Needs Attention'], ['all', 'Show All']]) {
+    const option = document.createElement('option'); option.value = value; option.textContent = text; findingFilter.append(option);
+  }
+  findingFilter.onchange = () => { attentionOnly = findingFilter.value === 'attention'; selected = null; render(); };
+  tabs.append(filterLabel, findingFilter);
   extraStyle.textContent += '.tabs{flex-wrap:wrap}.tabs button{flex:1 0 23%}.actions{flex-wrap:wrap}.manual-item{display:block;margin-bottom:16px}.manual-item select{display:block;margin:6px 0}';
   extraStyle.textContent += 'aside{overflow-y:auto}aside>*{flex-shrink:0}.results{flex:1 0 240px}.meta:empty{display:none}';
   extraStyle.textContent += '.manual-item{padding:12px;border:1px solid #dce2eb;border-radius:6px;background:white}.criterion-evidence{font-size:11px;color:#52657d} #wcagCoverageSummary{font-weight:650} .sitemap{padding-left:12px;overflow-wrap:anywhere}.sitemap ul{padding-left:16px}.sitemap li{margin:12px 0;list-style:none}.sitemap small{display:block;color:#52657d;font-size:11px}.sitemap details{font-size:11px}.sitemap-status{display:inline-block;text-align:center;min-width:20px;font-weight:800}.sitemap-status.issues{color:#b42335}.sitemap-status.clean{color:#257253}.sitemap-status.review{color:#956100}.sitemap-status.unknown{color:#53647b}';
   extraStyle.textContent += `header{padding:7px 12px}.brand{font-size:18px}.close{font-size:23px;line-height:24px}.actions{padding:8px 12px 6px;gap:6px;flex-wrap:nowrap}.actions button{padding:6px 9px;font-size:12px}.stats{gap:4px;padding:6px 12px 8px}.stat{padding:4px 7px;font-size:11px;white-space:nowrap}.stat strong{font-size:17px;display:inline;margin-right:5px}.tabs{margin:0;padding:6px 12px;gap:8px;align-items:center;flex-wrap:nowrap;border-top:1px solid #dce2eb}.tabs label{font-size:12px}.tabs select{flex:1;min-width:0;padding:5px;font:12px system-ui;border:1px solid #c7d0df;border-radius:5px;background:white;color:#233b5d}.toolbar{padding:6px 12px;font-size:12px}.results{flex:1 1 0;min-height:120px;padding:10px 12px}footer{padding:5px 12px;font-size:10px}#scanDetails{margin:0 12px;font-size:11px;max-height:30vh;overflow:auto}#scanDetails>summary{padding:4px 0;color:#53647b}#scanDetails[data-attention=true]>summary{color:#956100}#scanDetails .meta{padding:5px 0;font-size:11px}#scanDetails #pauseBrowsing{font-size:12px;padding:5px 8px;margin:4px 0 8px;border:1px solid #c7d0df;border-radius:5px;background:white;color:#233b5d}.view-help{font-size:11px;margin:0 0 8px;color:#53647b}.view-help summary{font-weight:500}.view-help p{margin:6px 0}.rule{margin-bottom:8px;padding:10px}`;
   $('.toolbar').before(tabs);
-  function currentRules() {
+  function unfilteredRules() {
     if (['Changes', 'Manual', 'Keyboard test', 'Additional checks', 'Sitemap', 'Site report'].includes(view)) return [];
     if(view==='Order') return report.inventory.order;
     if(view==='Structure') return report.inventory.structure;
     if(view==='Contrast') return [...report.results.violations,...report.results.incomplete].filter(r=>r.id==='color-contrast');
     return report.inventory[category] || report.results[category] || [];
   }
+  function currentRules() {
+    const rules = unfilteredRules();
+    if (!attentionOnly) return rules;
+    return rules.flatMap(rule => {
+      if (!attentionRuleCache.has(rule)) {
+        let visible;
+        if (report.results.violations.includes(rule) || report.results.incomplete.includes(rule) || report.inventory.alerts.includes(rule)) visible = rule;
+        else if (!report.results.passes.includes(rule) && !report.results.inapplicable.includes(rule)) {
+          const nodes = rule.nodes.filter(node => attentionElements.has(resolve(node.target)));
+          if (nodes.length) visible = { ...rule, nodes };
+        }
+        attentionRuleCache.set(rule, visible || null);
+      }
+      const visible = attentionRuleCache.get(rule);
+      return visible ? [visible] : [];
+    });
+  }
   function numberedItems() {
-    return currentRules().flatMap(r => r.nodes.map(n => ({ r, n }))).map((item, i) => ({ ...item, number: i + 1 }));
+    return currentRules().flatMap(r => r.nodes.map(n => ({ r, n }))).map((item, i) => ({ ...item,
+      number: view === 'Order' ? (report.inventory.order[0]?.nodes.indexOf(item.n) ?? i) + 1 : i + 1 }));
   }
   function revealIssue(node) {
     if (!expand.hidden) expand.onclick();
@@ -358,7 +392,10 @@
     const assessmentStatus = document.createElement('p'); assessmentStatus.id = 'keyboardAssessmentStatus'; assessmentStatus.setAttribute('role', 'status');
     assessmentStatus.textContent = run.assessment?.checkedAt ? `Assessment: ${run.assessment.status}, recorded ${run.assessment.checkedAt}. Applies to this run only.` : 'Review the recorded steps, then mark Pass or Fail. This does not fill in the WCAG criterion checklist.'; results.append(assessmentStatus);
     assessment.onchange = async () => {
-      run.assessment = { status: assessment.value, checkedAt: new Date().toISOString(), runId: run.id };
+      let attribution;
+      try { attribution = await auditorAttribution(); }
+      catch { assessment.value = run.assessment?.status || 'not-reviewed'; assessmentStatus.textContent = 'Auditor settings could not be read. The assessment was not recorded; open Settings and retry.'; return; }
+      run.assessment = { status: assessment.value, checkedAt: new Date().toISOString(), runId: run.id, attribution };
       assessment.disabled = true;
       let recoveryError = false;
       if (globalThis.chrome?.runtime?.id) {
@@ -485,12 +522,20 @@
   }
   function render() {
     if (!report) return;
+    attentionRuleCache = new WeakMap();
+    attentionElements = new Set([...report.results.violations, ...report.results.incomplete, ...report.inventory.alerts]
+      .flatMap(rule => rule.nodes.map(node => resolve(node.target))).filter(Boolean));
     const categories={violations:'Issues',incomplete:'Needs review',features:'Features',alerts:'Alerts',structure:'Structure',aria:'ARIA',passes:'Passed checks'};
     $('.stats').innerHTML = Object.entries(categories).map(([key,label]) => `<button class="stat" data-kind="${key}" aria-pressed="${key===category}"><strong>${report.inventory[key] ? report.inventory[key].reduce((s,r)=>s+r.nodes.length,0) : report.results[key].length}</strong>${label}</button>`).join('');
     root.querySelectorAll('.stat').forEach(b => b.onclick = () => { category=b.dataset.kind; view='Details';selected=null; render(); });
     viewSelect.value = view;
     $('#viewTitle').textContent = view==='Details' ? categories[category] : view;
     const results = $('.results'); results.replaceChildren();
+    if (attentionOnly && !['Changes', 'Manual', 'Keyboard test', 'Additional checks', 'Sitemap', 'Site report'].includes(view)) {
+      const note = document.createElement('p'); note.id = 'findingFilterNote'; note.className = 'inspection-note';
+      note.textContent = 'Showing detected issues and review candidates. Show All includes informational inventories and passed checks. Counts above remain totals; manual WCAG review is still required.';
+      results.append(note);
+    }
     if (['Details','Contrast','Reference'].includes(view) && report.results.accessLensScanPasses) {
       const passes = report.results.accessLensScanPasses;
       const summary = document.createElement('p'); summary.id = 'scanPassSummary'; summary.className = 'inspection-note';
@@ -677,13 +722,18 @@
           if (!evidence) return;
           const current = accessLensWorkflow.coverage(exportReport, scanPolicy.staleDays).criteria.find(c => c.id === id);
           evidence.textContent = `${current.status} · ${current.method === 'automated-and-manual' ? 'Automated evidence + human review required' : 'Human review required; no mapped automated result'}. ${Object.entries(current.rules).map(([bucket,ids]) => `${bucket}: ${ids.join(', ') || 'none'}`).join(' · ')}${current.supplemental.length ? '. Additional evidence: ' + current.supplemental.map(check => `${check.check}: ${check.candidates} candidate(s)`).join(', ') : ''}`;
+          const elements = current.elementCoverage;
+          evidence.textContent += ` Element checks: ${elements.ruleElementChecks.violations} failing, ${elements.ruleElementChecks.incomplete} incomplete, ${elements.ruleElementChecks.passes} passing; ${elements.uniqueLocatedTargets} unique located target(s). Complete relevant-element enumeration is not established.${elements.unlocatedRuleElementChecks || elements.unavailableNodeLists ? ' Some checks lack locators or node lists.' : ''}${elements.candidateEnumerationLimited ? ' Candidate enumeration reached a limit.' : ''}`;
         };
         updateEvidence();
         const prior = activeSession.checklist[id];
         const revalidate = prior && (criterion?.status === 'needs-revalidation' || accessLensFeatures.stale(prior.checkedAt, scanPolicy.staleDays) || Date.parse(prior.checkedAt) < Date.parse(exportReport.scannedAt));
         if (revalidate) label.append(document.createTextNode(' — Revalidate: this result is old or predates the latest scan.'));
         const recordCheck = async () => {
-          activeSession.checklist[id] = { status: select.value, checkedAt: new Date().toISOString() };
+          let attribution;
+          try { attribution = await auditorAttribution(); }
+          catch { select.value = activeSession.checklist[id]?.status || 'not-tested'; saveStatus.textContent = 'Auditor settings could not be read. The review was not recorded; open Settings and retry.'; return; }
+          activeSession.checklist[id] = { status: select.value, checkedAt: new Date().toISOString(), attribution };
           exportReport.manualChecks = activeSession.checklist;
           exportReport.wcagCoverage = accessLensWorkflow.coverage(exportReport, scanPolicy.staleDays);
           updateSummary(); updateEvidence();
@@ -715,7 +765,7 @@
       if(rule.icon && view!=='Reference') {
         const card=document.createElement('section');card.className='rule '+category;
         const label=document.createElement('label');label.className='group-toggle';const toggle=document.createElement('input');toggle.type='checkbox';toggle.checked=!hiddenGroups.has(rule.id);toggle.onchange=()=>{toggle.checked?hiddenGroups.delete(rule.id):hiddenGroups.add(rule.id);position();};label.append(toggle,document.createTextNode(`${rule.nodes.length} ${rule.help}`));card.append(label);
-        const icons=document.createElement('div');icons.className='icons';rule.nodes.forEach((node,i)=>{const b=document.createElement('button');b.className='icon';b._node=node;b.textContent=view==='Order'?i+1:rule.icon;b.title=`${rule.help}: ${node.text || node.target.join(' → ')}`;b.setAttribute('aria-label',`${rule.help}, element ${i+1}: ${node.text || node.target.join(' → ')}`);b.onclick=()=>inspect(node);icons.append(b);});card.append(icons);results.append(card);continue;
+        const icons=document.createElement('div');icons.className='icons';rule.nodes.forEach((node,i)=>{const b=document.createElement('button');b.className='icon';b._node=node;b.textContent=view==='Order'?numbers.get(node):rule.icon;b.title=`${rule.help}: ${node.text || node.target.join(' → ')}`;b.setAttribute('aria-label',`${rule.help}, element ${view==='Order'?numbers.get(node):i+1}: ${node.text || node.target.join(' → ')}`);b.onclick=()=>inspect(node);icons.append(b);});card.append(icons);results.append(card);continue;
       }
       const needsReview = report.results.incomplete.includes(rule);
       const reviewContrast = needsReview && rule.id === 'color-contrast';
@@ -736,13 +786,14 @@
         const verify = document.createElement('p'); verify.textContent = reviewContrast ? 'Unsupported effects or text regions remain unresolved; they are not automatically failed or passed.' : guidance.verify; help.append(verify); card.append(help);
       }
       for(const node of rule.nodes) {
-        const explanation = needsReview ? [...node.any, ...node.all, ...node.none].map(check => accessLensFeatures.contrastEvidence(check).reason || check.message).filter(Boolean).join(' ') : node.failureSummary;
+        const nodeChecks = [...(node.any || []), ...(node.all || []), ...(node.none || [])];
+        const explanation = needsReview ? nodeChecks.map(check => accessLensFeatures.contrastEvidence(check).reason || check.message).filter(Boolean).join(' ') : node.failureSummary;
         const button=document.createElement('button'); button.className='node'; button._node=node; button.innerHTML=`<strong class="issue-number">#${numbers.get(node)}</strong> ${escape(node.target.join(' → '))}<code>${escape(node.html)}</code>${explanation ? `<p>${escape(explanation)}</p>` : ''}`; button.onclick=()=>inspect(node); card.append(button);
         if (rule.id === 'color-contrast') {
           const debugPanel = document.createElement('details'); debugPanel.className = 'contrast-debug';
           const title = document.createElement('summary'); title.textContent = 'Contrast debug'; debugPanel.append(title);
           const note = document.createElement('p'); note.textContent = 'CSS text color is used, so glyph antialiasing is not sampled as foreground. DOM text is hidden during background capture; text baked into images remains. Regions cover line rectangles, not exact glyph shapes. Region-edge proximity does not prove antialiasing. Only fully contained device pixels are sampled. Genuine pixels inside the region are not ignored; thresholds are unchanged.'; debugPanel.append(note);
-          for (const check of [...node.any, ...node.all, ...node.none].filter(check => check.id === 'color-contrast')) {
+          for (const check of nodeChecks.filter(check => check.id === 'color-contrast')) {
             const debug = accessLensFeatures.contrastDebug(check);
             const data = debug || { source: 'axe-core', measurements: accessLensFeatures.contrastEvidence(check).measurements, secondPass: node.secondPass?.reason || 'not-required', pixelDiagnostics: 'No Access Lens background pixels were measured for this result.' };
             const code = document.createElement('pre'); code.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px'; code.textContent = JSON.stringify(data,null,2); debugPanel.append(code);
@@ -751,9 +802,9 @@
           }
           card.append(debugPanel);
         }
-        const textRuns = [...node.any,...node.all,...node.none].find(check=>check.data?.textRunSummary)?.data.textRunSummary;
+        const textRuns = nodeChecks.find(check=>check.data?.textRunSummary)?.data.textRunSummary;
         if (textRuns) { const runs=document.createElement('p'); runs.className='text-run-summary'; runs.textContent='Nested text: '+textRuns.passed+' passed, '+textRuns.failed+' failed, '+textRuns.unresolved+' unresolved across '+textRuns.total+' run(s). Pixel diagnostics describe a representative run.'; card.append(runs); }
-        const linkEvidence=[...node.any,...node.all,...node.none].find(check=>check.data?.linkDistinction)?.data.linkDistinction;
+        const linkEvidence=nodeChecks.find(check=>check.data?.linkDistinction)?.data.linkDistinction;
         if(linkEvidence){const evidence=document.createElement('p');evidence.className='link-distinction';evidence.textContent='Link identification: '+linkEvidence.method+'. '+linkEvidence.staticTextStyles+' surrounding non-link text style(s).'+(linkEvidence.minimumLinkToTextRatio!==undefined?' Link versus surrounding text: '+linkEvidence.minimumLinkToTextRatio.toFixed(3)+':1 (color-only technique uses 3:1; hover/focus cues remain unverified).':'')+' This result does not pass the separate text/background contrast criterion.';card.append(evidence);}
         if (node.secondPass) {
           const provenance = document.createElement('p'); provenance.className = 'second-pass-result';
@@ -762,14 +813,14 @@
         if (needsReview && rule.id === 'color-contrast' && globalThis.accessLensContrast) {
           const sampleButton = document.createElement('button'); sampleButton.type = 'button'; sampleButton.className = 'sample-contrast'; sampleButton.textContent = 'Sample rendered background';
           const samplePanel = document.createElement('section'); samplePanel.className = 'contrast-sampler';
-          const previous = [...node.any, ...node.all, ...node.none].find(check => check.renderedSample)?.renderedSample;
+          const previous = nodeChecks.find(check => check.renderedSample)?.renderedSample;
           if (previous) { const result = document.createElement('p'); result.textContent = 'Previous sampled ratio ' + previous.contrastRatio.toFixed(3) + ':1; required ' + previous.expectedContrastRatio + ':1. Manual review still required.'; samplePanel.append(result); }
           sampleButton.onclick = async () => {
             sampleButton.disabled = true;
             const scanSnapshot = exportReport;
             await accessLensContrast.show(samplePanel, () => captureContrastElement(node), async sample => {
               if (disposed || exportReport !== scanSnapshot) throw new Error('This scan changed. Sample the current result again.');
-              for (const check of [...node.any, ...node.all, ...node.none].filter(check => check.id === 'color-contrast')) { if (sample) check.renderedSample = sample; else delete check.renderedSample; }
+              for (const check of nodeChecks.filter(check => check.id === 'color-contrast')) { if (sample) check.renderedSample = sample; else delete check.renderedSample; }
               const exportedNode = exportReport.results.incomplete.find(result => result.id === rule.id)?.nodes[rule.nodes.indexOf(node)];
               if (exportedNode) for (const check of [...exportedNode.any, ...exportedNode.all, ...exportedNode.none].filter(check => check.id === 'color-contrast')) { if (sample) check.renderedSample = sample; else delete check.renderedSample; }
               saveStatus.textContent = 'Contrast sample updated; export JSON to retain it. Manual review remains required.';
@@ -779,7 +830,7 @@
           };
           card.append(sampleButton, samplePanel);
         }
-        if (view === 'Contrast') for (const check of [...node.any, ...node.all, ...node.none].filter(check => check.id === 'color-contrast')) {
+        if (view === 'Contrast') for (const check of nodeChecks.filter(check => check.id === 'color-contrast')) {
           const evidence = accessLensFeatures.contrastEvidence(check), measured = evidence.measurements;
           const details = document.createElement('p'); details.className = 'contrast-measurement';
           details.textContent = (measured.contrastRatio ? 'Measured ' + measured.contrastRatio + ':1. ' : 'Contrast ratio unavailable. ') + (measured.expectedContrastRatio ? 'Required ' + measured.expectedContrastRatio + ':1. ' : '') + (measured.fgColor ? 'Foreground ' + measured.fgColor + '. ' : '') + (measured.bgColor ? 'Background ' + measured.bgColor + '. ' : '') + (evidence.reason || check.message || '');
@@ -788,7 +839,11 @@
       }
       results.append(card);
     }
-    if(!results.children.length) results.innerHTML='<div class="status">No checks in this category.</div>';
+    if (!currentRules().length) {
+      const empty = document.createElement('p'); empty.className = 'status';
+      empty.textContent = attentionOnly ? 'No attention items in this view. Use Show All to inspect other checks; complete manual review separately.' : 'No checks in this category.';
+      results.append(empty);
+    }
     position();
   }
   async function scan() {
@@ -797,6 +852,7 @@
     const scannedAddress = location.href;
     $('#scan').disabled=true; $('#export').disabled=true; selected=null; report=null; exportReport=null; $('#overlay').replaceChildren(); $('.stats').replaceChildren(); $('.results').innerHTML='<div class="status">Analyzing the current page…</div>';
     try {
+      const scanAttribution = await auditorAttribution();
       scanPolicy = accessLensFeatures.policy({}, scannedAddress);
       if (extensionContext && !globalThis.chrome?.runtime?.id) throw new Error('EXTENSION_CONTEXT_UNAVAILABLE');
       if (globalThis.chrome?.runtime?.id) {
@@ -821,6 +877,7 @@
       if(disposed) return;
       report={schemaVersion:'1.1',tool:{name:'Access Lens',version: '1.12.0',engine:results.testEngine},page:{url:location.href,title:document.title},scannedAt:results.timestamp,scope:{description:'Rendered top-level document, including supported open shadow roots. Embedded frames excluded. Informational inventories also include hidden elements; keyboard order is estimated.',standard:'WCAG 2.2 Level A/AA',limitations:['Automated checks do not establish WCAG conformance.','Scan again after changing page content.','Embedded frames and closed shadow roots are not analyzed.']},summary:Object.fromEntries(Object.keys(labels).map(k=>[k,{rules:results[k].length,elements:results[k].reduce((s,r)=>s+r.nodes.length,0)}])),inventory:globalThis.accessLensInventory(),results};
       exportReport=globalThis.accessLensExport(report, scannedAddress);
+      exportReport.attribution = scanAttribution;
       exportReport.completeness.durationMs = Date.now() - scanStarted;
       exportReport.pageState = await accessLensWorkflow.state(stateSlot.value);
       manualAttempt.state = exportReport.pageState.key;

@@ -37,3 +37,29 @@ This does not replace the earlier report's recorded 16,438 ms scan or the unveri
 - The scratch files are synthetic, written under a newly created `test-results` subdirectory, then removed individually. The utility never deletes audit evidence.
 
 Run again after relevant changes; compare equivalent environments and report all scope differences. Do not apply a hard timing pass/fail threshold based on this small baseline alone.
+
+## Phase 1 — Export-local caching
+
+On November 19, 2026, repeated the same benchmark immediately before and after adding caches scoped to one synchronous export. Sibling indexes, structural paths and sanitized per-element evidence are reused within that call. Each later export starts with empty caches, so rescans and subsequent exports observe changed geometry, relationships, attributes and DOM ancestry.
+
+| Stage | Small before / after | Medium before / after | Large before / after |
+|---|---:|---:|---:|
+| Export construction | 4.4–6.6 / 2.0–5.4 ms | 51.3–52.7 / 13.6–16.5 ms | 574.8–588.4 / 113.3–123.1 ms |
+| Browser-side pipeline | 40.4–79.9 / 40.3–80.0 ms | 201.8–222.6 / 171.3–172.8 ms | 1,191.6–1,196.7 / 738.7–741.3 ms |
+
+Formatted report sizes were identical in each equivalent profile: 470,639 / 2,734,365 / 10,575,167 bytes. A separate controlled comparison of the original and optimized functions found identical serialized evidence, excluding newly generated scan IDs, both before and after style, relationship, sibling and shadow-root mutations. The committed freshness regression checks that later exports update their evidence while leaving the earlier report unchanged.
+
+These are two observations per size, with the same synthetic scope and limitations as above. They demonstrate an improvement on these fixtures, not a guaranteed production speedup. No passing-check evidence, scan rules, diagnostic payloads or pixel samples were removed. Screenshot-backed scanning and long-running interaction work remain separate.
+
+## Phase 1 — Repeated pixel-color allocations
+
+The rendered-background loop already cached contrast ratios by color. It now keys that cache by the exact 24-bit RGB integer and creates a hex string only on the first occurrence of a color. Every original pixel, threshold comparison, edge/interior classification and histogram count remains included; this does not introduce sparse sampling, rounding or color quantization.
+
+Run `node scripts/benchmark-contrast.js` for the current synthetic image-backed text profile. An optional path to an earlier `contrast.js` copy compares both implementations in the same browser and rejects differing complete contrast diagnostics. The November 19 comparison retained exactly 156,981 sampled pixels and 3,479 below-threshold pixels in every run, with identical diagnostics and outcome buckets.
+
+| Implementation | End-to-end engine/capture/pixel time, two observations |
+|---|---:|
+| Original string-key loop | 192.5–248.0 ms |
+| Numeric color-key loop | 177.1–182.0 ms |
+
+This uses real headless screenshots through the production crop/measurement path with mocked extension tab messaging. These small measurements do not isolate loop time or establish production percentiles; screenshot overhead and first-run effects remain included. A new regression retains a single failing interior pixel among repeated dark pixels, including exact histogram counts and zero edge-band misclassification.

@@ -1,6 +1,21 @@
 (() => {
   const $ = selector => document.querySelector(selector);
   let settings;
+  async function showAuditor() {
+    const attribution = await accessLensSettings.auditor();
+    $('#auditorFirstName').value = attribution?.firstName || '';
+    $('#auditorLastName').value = attribution?.lastName || '';
+    $('#auditorStatus').textContent = attribution ? `Self-declared auditor saved. Identifier: ${attribution.auditorId}. Not authenticated.` : 'No auditor name saved. Future scans and reviews record unknown attribution.';
+  }
+  $('#saveAuditor').onclick = async () => {
+    try { await accessLensSettings.saveAuditor($('#auditorFirstName').value, $('#auditorLastName').value); await showAuditor(); }
+    catch { $('#auditorStatus').textContent = 'Could not save auditor. Enter both names (up to 100 characters each), or leave both blank. The previous profile was retained.'; }
+  };
+  $('#clearAuditor').onclick = async () => {
+    try { await accessLensSettings.saveAuditor('', ''); await showAuditor(); }
+    catch { $('#auditorStatus').textContent = 'Could not clear auditor settings. The previous profile was retained.'; }
+  };
+  showAuditor().catch(() => { $('#auditorStatus').textContent = 'Auditor settings could not be read. Reload Settings and retry.'; });
   $('#archiveEvidence').onclick = async () => {
     const button = $('#archiveEvidence'); button.disabled = true;
     try {

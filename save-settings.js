@@ -1,5 +1,18 @@
 // Persist preferences, the folder handle, and opt-in compact content-free history; never raw reports.
 globalThis.accessLensSettings = {
+  async auditor() {
+    const profile = await this.read('auditor-profile');
+    return profile.attribution == null ? null : accessLensAttribution(profile.attribution);
+  },
+  async saveAuditor(firstName, lastName) {
+    firstName = firstName.trim(); lastName = lastName.trim();
+    const previous = await this.auditor();
+    const attribution = !firstName && !lastName ? null : accessLensAttribution({
+      auditorId: previous?.auditorId || crypto.randomUUID(), firstName, lastName, identityType: 'self-declared', authenticated: false
+    });
+    await this.write({ attribution }, 'auditor-profile');
+    return attribution;
+  },
   failure(code) { return Object.assign(new Error(code), { code }); },
   saveError(error) {
     // Never return native messages: they can include local file paths.
@@ -180,7 +193,8 @@ globalThis.accessLensSettings = {
       const check = report.manualChecks?.[id];
       if (!check || !['not-tested', 'pass', 'fail', 'not-applicable'].includes(check.status) || !Number.isFinite(Date.parse(check.checkedAt))) continue;
       if (id.startsWith('scope-') && check.status === 'not-applicable') continue;
-      checklist[id] = { status: check.status, checkedAt: new Date(check.checkedAt).toISOString() };
+      checklist[id] = { status: check.status, checkedAt: new Date(check.checkedAt).toISOString(),
+        ...(check.attribution !== undefined ? { attribution: accessLensAttribution(check.attribution) } : {}) };
     }
     const run = report.keyboardTest;
     const keyboardTest = run && typeof run.id === 'string' && run.id.length <= 100 &&
@@ -197,7 +211,8 @@ globalThis.accessLensSettings = {
           reason: ['step-limit-reached','stopped-by-user','frame-boundary','focus-left-document','driver-unavailable','driver-disconnected','debugger-canceled','page-navigated','browser-or-worker-restarted','time-limit','disabled-in-settings'].includes(run.reason) ? run.reason : 'driver-unavailable',
           reviewRequired: true, limitations: ['Earlier recorded traversal only. Revalidate against the current page; complete keyboard interaction still requires human review.'],
           repeatedFocus: (Array.isArray(run.repeatedFocus) ? run.repeatedFocus : []).filter(step => Number.isSafeInteger(step) && step >= 0 && step <= 200),
-          assessment: { status: run.assessment.status, checkedAt: run.assessment.checkedAt, runId: run.id },
+          assessment: { status: run.assessment.status, checkedAt: run.assessment.checkedAt, runId: run.id,
+            ...(run.assessment.attribution !== undefined ? { attribution: accessLensAttribution(run.assessment.attribution) } : {}) },
           entries: run.entries.map(entry => ({
             target: entry.target, flags: entry.flags,
             direction: ['forward', 'reverse', 'initial'].includes(entry.direction) ? entry.direction : 'initial',

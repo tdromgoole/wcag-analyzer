@@ -1,4 +1,13 @@
 // The download is constructed from an allowlist, never a copy of raw axe data.
+globalThis.accessLensAttribution = value => {
+  if (value == null) return null;
+  const keys = ['auditorId', 'firstName', 'lastName', 'identityType', 'authenticated'];
+  if (typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !keys.includes(key)) ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value.auditorId || '') ||
+      value.identityType !== 'self-declared' || value.authenticated !== false ||
+      [value.firstName, value.lastName].some(name => typeof name !== 'string' || !name.trim() || name.length > 100 || /[\u0000-\u001f\u007f]/.test(name))) throw new Error('Invalid auditor attribution.');
+  return { auditorId: value.auditorId, firstName: value.firstName.trim(), lastName: value.lastName.trim(), identityType: 'self-declared', authenticated: false };
+};
 globalThis.accessLensFilename = async (address, stateKey = '', configuration = globalThis.accessLensIdentity || {}) => {
   const url = new URL(address);
   // Ignore query strings and fragments, which often contain tokens or transient state.
@@ -25,20 +34,29 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
   }
   const catalog = new Map(axe.getRules().map(rule => [rule.ruleId, rule]));
   const safeTags = new Set('html head title body main header footer nav section article aside div span p a button input select option textarea label img svg path ul ol li dl dt dd table caption thead tbody tfoot tr th td h1 h2 h3 h4 h5 h6 form fieldset legend video audio source iframe dialog details summary br hr strong em b i canvas slot'.split(' '));
+  // One synchronous export represents one DOM snapshot. Never reuse these caches across exports.
+  const siblingIndexes = new WeakMap(), structuralTargets = new WeakMap(), elementEvidence = new WeakMap();
   function segment(el) {
     // Custom element names can themselves contain identifiers.
     const tag = safeTags.has(el.localName) ? el.localName : '*';
-    const siblings = el.parentNode?.children ? [...el.parentNode.children] : [el];
-    return tag + ':nth-child(' + (siblings.indexOf(el) + 1) + ')';
+    const parent = el.parentNode;
+    if (parent?.children && !siblingIndexes.has(parent)) {
+      siblingIndexes.set(parent, new Map([...parent.children].map((child, index) => [child, index + 1])));
+    }
+    return tag + ':nth-child(' + (parent?.children ? siblingIndexes.get(parent).get(el) : 1) + ')';
   }
   function structural(el) {
+    if (structuralTargets.has(el)) return structuralTargets.get(el);
+    const original = el;
     const parts = [];
     while (el?.nodeType === 1) {
       parts.unshift(segment(el));
       if (el.parentElement) el = el.parentElement;
       else {
         const host = el.getRootNode().host;
-        return host ? [...structural(host), parts.join(' > ')] : [parts.join(' > ')];
+        const target = host ? [...structural(host), parts.join(' > ')] : [parts.join(' > ')];
+        structuralTargets.set(original, target);
+        return target;
       }
     }
     return [];
@@ -55,6 +73,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
       }
     } catch { el = null; }
     if (!el) return { target: [], locatorAvailable: false };
+    if (elementEvidence.has(el)) return elementEvidence.get(el);
     const roles = new Set('alert alertdialog application article banner button cell checkbox columnheader combobox complementary contentinfo definition dialog document feed figure form grid gridcell group heading img link list listbox listitem log main marquee math menu menubar menuitem menuitemcheckbox menuitemradio meter navigation none note option presentation progressbar radio radiogroup region row rowgroup rowheader scrollbar search searchbox separator slider spinbutton status switch tab table tablist tabpanel term textbox timer toolbar tooltip tree treegrid treeitem'.split(' '));
     const role = (el.getAttribute('role') || '').split(/\s+/).find(value => roles.has(value));
     function references(name) {
@@ -75,7 +94,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
       const value = el.getAttribute(name);
       if (['true', 'false', 'mixed'].includes(value)) states[name] = value;
     }
-    return {
+    const evidence = {
       target: structural(el), locatorAvailable: true,
       elementType: safeTags.has(el.localName) ? el.localName : 'custom-or-other',
       labelPresent: el.hasAttribute('aria-label'),
@@ -90,6 +109,8 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
         controls: references('aria-controls'), owns: references('aria-owns') },
       measurements, focusable: el.tabIndex >= 0, disabled: Boolean(el.disabled)
     };
+    elementEvidence.set(el, evidence);
+    return evidence;
   }
   function check(c) {
     const data = {};
@@ -140,7 +161,7 @@ globalThis.accessLensExport = (report, address = report.page?.url || location.hr
     });
   }
   const exported = {
-    schemaVersion: '2.1', pagePath: page.href, scanId: crypto.randomUUID(),
+    schemaVersion: '2.1', pagePath: page.href, scanId: crypto.randomUUID(), attribution: accessLensAttribution(report.attribution),
     privacy: { mode: 'content-free', alternativeTextIncluded: false, structuralLocatorsOnly: true, pagePathIncluded: true, queryAndFragmentIncluded: false },
     tool: report.tool, scannedAt: report.scannedAt, scope: report.scope, summary: report.summary,
     completeness,

@@ -216,8 +216,14 @@ globalThis.accessLensContrast = {
             const pixels = ctx.getImageData(bounds.x, bounds.y, bounds.width, bounds.height).data;
             sampledPixels += pixels.length / 4;
             for (let i = 0; i < pixels.length; i += 4) {
-              const color = '#' + [...pixels.slice(i, i + 3)].map(value => value.toString(16).padStart(2, '0')).join('');
-              let entry = cache.get(color); if (!entry) { entry = { ratio: this.ratio(foreground.fgColor, color), count: 0 }; cache.set(color, entry); }
+              // Keep every pixel, but allocate a hex string only for a new RGB color.
+              const colorKey = (pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2];
+              let entry = cache.get(colorKey);
+              if (!entry) {
+                const color = '#' + colorKey.toString(16).padStart(6, '0');
+                entry = { color, ratio: this.ratio(foreground.fgColor, color), count: 0 }; cache.set(colorKey, entry);
+              }
+              const color = entry.color;
               entry.count++; const ratio = entry.ratio;
               const px = (i / 4) % pixelWidth, py = Math.floor(i / 4 / pixelWidth);
               const nearRegionEdge = (bounds.x + px) / sx - rect.x < 2 || (bounds.y + py) / sy - rect.y < 2 || rect.x + rect.width - (bounds.x + px + 1) / sx < 2 || rect.y + rect.height - (bounds.y + py + 1) / sy < 2;
@@ -229,7 +235,7 @@ globalThis.accessLensContrast = {
               if (ratio < minimum) { minimum = ratio; worstColor = color; } maximum = Math.max(maximum, ratio);
             }
           }
-          const histogram = [...cache.entries()].map(([color, entry]) => ({ color, count: entry.count, ratio: entry.ratio })).sort((a,b) => b.count - a.count).slice(0,8);
+          const histogram = [...cache.values()].map(entry => ({ color: entry.color, count: entry.count, ratio: entry.ratio })).sort((a,b) => b.count - a.count).slice(0,8);
           check.data = { ...check.data, contrastDebug: { schemaVersion: 1, method: 'css-text-against-hidden-text-background-regions', foregroundSource: 'computed-css', samplingBounds: 'fully-contained-device-pixels', fgColor: foreground.fgColor,
             expectedContrastRatio: foreground.expectedContrastRatio, minimumContrastRatio: minimum, maximumContrastRatio: maximum, sampledPixels, belowThresholdPixels,
             edgeBandBelowThresholdPixels, interiorBelowThresholdPixels: belowThresholdPixels - edgeBandBelowThresholdPixels, minimumInteriorRatio: Number.isFinite(minimumInteriorRatio) ? minimumInteriorRatio : null,

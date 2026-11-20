@@ -1,0 +1,230 @@
+{
+  "schemaVersion": "1.0",
+  "reportType": "laboratory-manual-review",
+  "fixtureVersion": "10",
+  "environment": {
+    "windowsVersion": null,
+    "browserName": null,
+    "browserVersion": null,
+    "nvdaVersion": null,
+    "scannerVersion": null,
+    "keyboardLayout": null,
+    "nvdaSettings": null
+  },
+  "reviewer": {
+    "attribution": null,
+    "authenticated": false
+  },
+  "reviews": [
+    {
+      "caseId": "dynamic-unannounced-status",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "dynamic-announced-status",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "modal-managed-focus",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "modal-missing-focus",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "keyboard-native-action",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "keyboard-pointer-only",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "reflow-fixed-width",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "reflow-wrapping",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "forms-error-unassociated",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "forms-error-associated",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "images-context-review",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "contrast-gradient-review",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "spacing-clipped",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "spacing-flexible",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "media-captions-missing",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "media-captions-present",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "media-subtitles-review",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "media-silent-review",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "focus-indicator-hidden",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "focus-indicator-visible",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "focus-control-obscured",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "focus-control-unobscured",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "timing-fixed",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "timing-extend",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "process-redundant-fail",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "process-redundant-pass",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "keyboard-trap",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "keyboard-exit",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "controls-graphic-fail",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    },
+    {
+      "caseId": "controls-graphic-pass",
+      "status": "not-tested",
+      "checkedAt": null,
+      "observations": [],
+      "uncertainty": null
+    }
+  ]
+}

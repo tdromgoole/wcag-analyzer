@@ -14,7 +14,7 @@ async function handleAuto(message, sender) {
   const policy = accessLensFeatures.policy(await accessLensSettings.read(), address);
   if (message.type === 'access-lens-auto-check') {
     if (policy.paused || policy.excluded) await autoBadge(sender.tab.id, policy.paused ? 'P' : 'SKIP', policy.paused ? 'Access Lens: background scans paused' : 'Access Lens: this path is excluded', '#53647b');
-    return { enabled: true, ...policy };
+    return { enabled: true, ...policy, attribution: await accessLensSettings.auditor?.() || null };
   }
   if (message.type === 'access-lens-auto-attempt' || message.type === 'access-lens-auto-failed') {
     if (message.sitemap) await accessLensSettings.sitemap(message.sitemap.site, { ...message.sitemap, status: message.status || 'failed' });
@@ -67,6 +67,8 @@ chrome.runtime.onMessage.addListener((message, sender, respond) => {
     handleAuto(message, sender).then(respond, () => respond({ error: 'Automatic scanning is unavailable. Reload this page or check Settings.' }));
   } else if (message.type === 'access-lens-policy') {
     accessLensSettings.read().then(settings => respond(accessLensFeatures.policy(settings, message.address || sender.url)), () => respond({ error: true }));
+  } else if (message.type === 'access-lens-attribution') {
+    accessLensSettings.auditor().then(attribution => respond({ attribution }), () => respond({ error: 'Auditor settings could not be read. Open Settings and retry.' }));
   } else if (message.type === 'access-lens-policy-changed') {
     refreshMenu().then(() => respond({ ok: true }), () => respond({ error: true }));
   } else if (message.type === 'access-lens-pause-toggle') {

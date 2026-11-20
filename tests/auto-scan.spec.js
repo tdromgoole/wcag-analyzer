@@ -9,7 +9,7 @@ async function inject(page, enabled = true) {
     window.autoListeners = [];
     window.chrome = { runtime: {
       sendMessage: async message => {
-        if (message.type === 'access-lens-auto-check') return { enabled: on };
+        if (message.type === 'access-lens-auto-check') return { enabled: on, attribution: window.syntheticAuditor || null };
         if (message.type === 'access-lens-auto-result') { savedScans.push(message); return { saved: true }; }
         return { ok: true };
       }, onMessage: { addListener: listener => autoListeners.push(listener), removeListener: listener => { autoListeners = autoListeners.filter(item => item !== listener); } }
@@ -25,15 +25,19 @@ test('browsing scans save without a panel on page loads, SPA routes, and state c
   await expect(page.locator('#access-lens-extension')).toHaveCount(0);
   const initial = await page.evaluate(() => savedScans[0]);
   expect(initial.report.privacy.mode).toBe('content-free');
+  expect(initial.report.attribution).toBeNull();
   expect(initial.report.supplementalChecks.checks).toHaveLength(7);
   expect(JSON.stringify(initial)).not.toContain('Test page');
   expect(initial.report.page).toBeUndefined();
   expect(initial.report.pagePath).toBe('http://127.0.0.1:4178/');
   expect(initial.sitemap.site).toMatch(/^[a-f0-9]{64}$/);
-  await page.evaluate(() => history.pushState(null, '', '/next-page?SECRET_TOKEN'));
+  const attribution = { auditorId: '12345678-1234-4567-8123-123456789abc', firstName: 'Ada', lastName: 'Example', identityType: 'self-declared', authenticated: false };
+  await page.evaluate(attribution => { window.syntheticAuditor = attribution; history.pushState(null, '', '/next-page?SECRET_TOKEN'); }, attribution);
   await expect.poll(() => page.evaluate(() => savedScans.length)).toBe(2);
   expect(await page.evaluate(() => savedScans[1].filename)).not.toBe(initial.filename);
   expect(await page.evaluate(() => savedScans[1].report.pagePath)).toBe('http://127.0.0.1:4178/next-page');
+  expect(await page.evaluate(() => savedScans[1].report.attribution)).toEqual(attribution);
+  expect(await page.evaluate(() => savedScans[0].report.attribution)).toBeNull();
   await page.evaluate(() => {
     const button = document.querySelector('button'); button.setAttribute('aria-expanded', 'true');
   });

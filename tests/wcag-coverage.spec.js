@@ -60,6 +60,28 @@ test('completion requires every criterion and scope review; rescans invalidate e
   expect(result.rescanned.reviewComplete).toBe(false);
 });
 
+test('element coverage distinguishes repeated checks, unique targets, missing locators and limited candidates', async ({ page }) => {
+  const result = await page.evaluate(() => {
+    const target = ['html:nth-child(1) > body:nth-child(2) > input:nth-child(1)'];
+    const report = { scannedAt: new Date().toISOString(), results: {
+      passes: [{ id: 'input-purpose-example', tags: ['wcag135'], nodes: [{ target }, { target }] }],
+      incomplete: [{ id: 'unresolved-example', tags: ['wcag135'], nodes: [{ target: [], locatorAvailable: false }] }],
+      violations: [{ id: 'legacy-example', tags: ['wcag135'] }]
+    }, supplementalChecks: { truncated: true, checks: [{ id: 'input-purpose', criteria: ['1.3.5'], observations: [{ target }], truncated: false }] } };
+    const before = JSON.stringify(report);
+    const coverage = accessLensWorkflow.coverage(report);
+    return { criterion: coverage.criteria.find(item => item.id === '1.3.5'), absent: coverage.criteria.find(item => item.id === '1.2.2'), unchanged: before === JSON.stringify(report) };
+  });
+  expect(result.criterion.elementCoverage).toEqual({ ruleElementChecks: { violations: 0, incomplete: 1, passes: 2, inapplicable: 0 }, uniqueLocatedTargets: 1,
+    unlocatedRuleElementChecks: 1, unavailableNodeLists: 1, additionalCandidateChecks: 1, candidateEnumerationLimited: true,
+    relevantElementEnumeration: 'not-established', completeAutomatedCoverage: false });
+  expect(result.criterion.status).toBe('fail');
+  expect(result.absent.status).toBe('not-tested');
+  expect(result.absent.elementCoverage.uniqueLocatedTargets).toBe(0);
+  expect(result.absent.elementCoverage.completeAutomatedCoverage).toBe(false);
+  expect(result.unchanged).toBe(true);
+});
+
 test('coverage view records individual criteria and exports their mapped evidence and status', async ({ page }) => {
   for (const file of [require.resolve('axe-core/axe.min.js'), ...['inspection.js','export.js','features.js','content.js'].map(name => path.resolve(name))]) await page.addScriptTag({ path: file });
   const ui = page.locator('#access-lens-extension');

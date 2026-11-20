@@ -20,6 +20,36 @@ test('two-pixel edge band is visible in diagnostics without silently ignoring it
   expect(JSON.stringify(result)).not.toContain('data:image');
 });
 
+test('one rare interior pixel is retained in contrast diagnostics among repeated dark background colors', async ({ page }) => {
+  await page.goto('http://127.0.0.1:4178');
+  await page.setContent('<p id="rare" style="display:inline-block;width:160px;font:16px/20px Arial;color:white;margin:0">A readable headline</p>');
+  await page.evaluate(() => {
+    const canvas = document.createElement('canvas'); canvas.width = 160; canvas.height = 20;
+    const context = canvas.getContext('2d'); context.fillStyle = '#000000'; context.fillRect(0, 0, 160, 20);
+    context.fillStyle = '#ffffff'; context.fillRect(37, 9, 1, 1);
+    document.querySelector('#rare').style.backgroundImage = `url("${canvas.toDataURL()}")`;
+  });
+  for (const file of [require.resolve('axe-core/axe.min.js'), ...['workflow.js', 'features.js', 'contrast.js', 'contrast-background.js', 'export.js'].map(file => path.resolve(file))]) await page.addScriptTag({ path: file });
+  await page.exposeFunction('rareScreenshot', async () => 'data:image/png;base64,' + (await page.screenshot()).toString('base64'));
+  const result = await page.evaluate(async () => {
+    window.chrome = { runtime: { id: 'test', sendMessage: async message => ({ image: await accessLensContrastCapture(message,
+      { id: 'test', frameId: 0, tab: { id: 1, windowId: 2 }, url: location.href }) }) },
+      tabs: { query: async () => [{ id: 1 }], get: async () => ({ url: location.href }), captureVisibleTab: () => rareScreenshot() } };
+    const results = await accessLensFeatures.runAxe(document);
+    const report = accessLensExport({ results, inventory: {}, scannedAt: results.timestamp });
+    return ['violations', 'incomplete', 'passes'].flatMap(bucket => report.results[bucket].filter(rule => rule.id === 'color-contrast').flatMap(rule => rule.nodes.map(node => ({ bucket,
+      debug: [...node.any, ...node.all, ...node.none].find(check => check.contrastDebug)?.contrastDebug }))));
+  });
+  const sample = result.find(item => item.debug);
+  expect(sample).toBeDefined(); expect(sample.bucket).not.toBe('passes');
+  expect(sample.debug.belowThresholdPixels).toBe(1);
+  expect(sample.debug.interiorBelowThresholdPixels).toBe(1);
+  expect(sample.debug.edgeBandBelowThresholdPixels).toBe(0);
+  expect(sample.debug.histogram.find(item => item.color === '#ffffff')).toMatchObject({ count: 1, ratio: 1 });
+  expect(sample.debug.histogram.find(item => item.color === '#000000').ratio).toBe(21);
+  expect(sample.debug.sampledPixels).toBeGreaterThan(1000);
+});
+
 test('debug panel explains available evidence and rejects arbitrary diagnostic content', async ({ page }) => {
   await page.goto('http://127.0.0.1:4178');
   await page.evaluate(() => { const el=document.createElement('p');el.style.cssText='color:white;background:linear-gradient(black,white)';el.textContent='Contrast debug example';document.body.append(el); });

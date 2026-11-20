@@ -1,9 +1,29 @@
 # Accessibility Evidence Contract
 
 **Date:** November 19, 2026  
-**State:** Scan/snapshot preservation and evidence-event export implemented. Future auditor, remediation, re-verification and reporting extensions remain planned. Full URL paths are approved; query strings, fragments, and embedded credentials remain excluded.
+**State:** Scan/snapshot preservation, optional local auditor attribution and evidence-event export implemented. Remediation, re-verification and reporting extensions remain planned. Full URL paths are approved; query strings, fragments, and embedded credentials remain excluded.
 
 ## Implemented scan format: 2.1
+
+### Optional self-declared attribution
+
+Schema 2.1 now supports the additive `attribution` field on scan reports, individual `manualChecks` decisions and keyboard `assessment` records. Missing legacy fields and explicit `null` mean unknown; they never inherit another event's actor. User decision: a missing auditor name does not block scanning.
+
+Named attribution has exactly `auditorId` (local UUID v4), `firstName`, `lastName`, `identityType: "self-declared"` and `authenticated: false`. Both names are required to save a named profile, are trimmed, and are limited to 100 characters without control characters. Unknown keys or authenticated-identity claims are rejected by the evidence boundary. These names are a disclosed personal-information exception; technical evidence still excludes page content and application credentials.
+
+Auditors use separate browser profiles/computers and installation-specific IDs. Each has one local profile; a UUID is not a cross-computer authenticated-person identifier. The user selected later work-application mapping rather than profile transfer. A shared-auditor picker and profile export/import are outside the current requirement.
+
+### Criterion element summaries
+
+Each newly calculated criterion record includes `elementCoverage`: observed rule-element counts by bucket, distinct located-target count, checks without locators, unavailable legacy node lists, supplementary candidate count and enumeration-limit flag. Repeated checks on one structural target count once in `uniqueLocatedTargets` but remain separate rule-element checks. These counts reference the report's existing findings rather than duplicating technical payloads.
+
+`relevantElementEnumeration: "not-established"` and `completeAutomatedCoverage: false` make incomplete whole-criterion coverage explicit. Zero checks or candidates is not automatic non-applicability, and none of these summaries changes criterion status or fills a human review. Historical reports without summaries remain readable and are not silently regenerated or relabelled.
+
+### Attribution capture and preservation
+
+Capture the scan actor before the scan, and each decision's actor when it is recorded. Portable snapshot events use the report's scan actor; manual/keyboard events use their own decision actor. Review restoration and merge retain that actor's snapshot and original timestamp. Profile changes never retroactively fill unknown fields or relabel earlier evidence. Correcting the current name retains its UUID; clearing/switching profiles creates a new UUID on the next named save. No application-user mapping or authentication is implemented.
+
+### Scan compatibility and privacy
 
 New scans emit `schemaVersion: "2.1"`. This privacy revision removes verbatim `alternativeText` from all result and inventory nodes. `altPresent`, structural targets, rule IDs, numerical evidence, and manual-review behavior remain available. Privacy metadata declares `mode: "content-free"` and `alternativeTextIncluded: false`.
 
@@ -28,6 +48,8 @@ The user confirmed on November 19, 2026 that full URL paths are acceptable but q
 
 Optional query/fragment route identity may continue to influence hashed identifiers without exporting the raw values. Preserve distinct hashed identities for different configured routes. Existing files are not automatically rewritten or deleted.
 
+User clarified that remediation “file paths” means page URL paths and structural DOM locators only. Application source filenames are excluded from extension evidence and remain part of the separate authorized work-app development workflow.
+
 ## Implemented preservation contract: 1.0
 
 New 2.1 scans include an additive `scanId` UUID, generated once for the scan and retained through review updates and retries. Older scans without it use a clearly labeled legacy reference containing the hashed page/state filename and known scan timestamp. No missing original timestamps or attribution are fabricated.
@@ -42,7 +64,7 @@ Explicit folder archival writes immutable `preserved-snapshot` envelopes, schema
 
 ## Future history extensions
 
-The following describes the broader target. Scan IDs and immutable snapshot IDs already exist as described above; auditor/finding identities and source-change/remediation actions remain later-phase work, not prerequisites for preserving current scan/review results.
+The following describes the broader target. Scan IDs, local auditor IDs and immutable snapshot IDs exist as described above; finding identities, authenticated-user mapping and source-change/remediation actions remain later-phase work.
 
 | Entity | Identifier and relationship |
 |---|---|

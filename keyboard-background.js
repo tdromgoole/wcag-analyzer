@@ -51,7 +51,8 @@ globalThis.accessLensKeyboardDriver = {
       if (!['not-reviewed','pass','fail'].includes(message.status)) return { error: 'Invalid keyboard assessment.' };
       const stored = await accessLensSettings.read('keyboard-last-run');
       if (stored.filename !== message.filename || stored.run?.id !== message.runId || stored.run.status === 'running') return { error: 'This run is no longer the latest recovery transcript. Export JSON to retain its assessment.' };
-      stored.run.assessment = { status: message.status, checkedAt: new Date().toISOString(), runId: stored.run.id };
+      stored.run.assessment = { status: message.status, checkedAt: new Date().toISOString(), runId: stored.run.id,
+        attribution: await accessLensSettings.auditor?.() || null };
       await accessLensSettings.write(stored, 'keyboard-last-run');
       return { assessment: stored.run.assessment };
     }

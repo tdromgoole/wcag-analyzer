@@ -22,7 +22,7 @@ The fixture uses nested elements without IDs/classes and an open shadow root. Te
 - Scan schema 2.1 is versioned; readers support both 2.0 and 2.1 with the documented legacy normalization boundary.
 - New scans have stable scan IDs; snapshot/event identifiers support retry deduplication without implying permanent element identity.
 - The separate work-application AI field inventory is tracked in [WORK-FOLLOW-UPS.md](WORK-FOLLOW-UPS.md). No access to that application or its database is required for these extension-local checks.
-- The plan's phrase “file paths” still needs clarification between approved page paths and application source filenames. No application source filenames have been added.
+- User clarified that “file paths” means approved page URL paths and structural DOM locators only. Application source filenames stay in the separate work-app workflow and are not added to extension evidence.
 - User confirmed that JavaScript remains the implementation language for the current plan. A TypeScript migration is separate future engineering work.
 
 ## Validation

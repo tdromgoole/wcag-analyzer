@@ -63,6 +63,7 @@ test('scan, locate findings, export JSON, rescan and close', async ({page}) => {
   expect(report.results.violations.flatMap(rule => rule.nodes).some(node => node.target.length)).toBe(true);
   expect(report.inventory.structure.some(r=>r.id==='h1')).toBe(true);
   await ui.locator('[data-kind=structure]').click();
+  await ui.locator('#findingFilter').selectOption('all');
   await expect(ui.locator('.icon')).toHaveCount(2);
   await ui.locator('.icon').first().click();
   await expect(ui.locator('.element-detail')).toContainText('Test page');

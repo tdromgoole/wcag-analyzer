@@ -182,8 +182,14 @@ globalThis.accessLensWorkflow = {
     const criteria = this.criteria.map(criterion => {
       const tag = 'wcag' + criterion.id.replaceAll('.', '');
       const rules = {};
+      const ruleNodes = {}, ruleElementChecks = {};
+      let unavailableNodeLists = 0;
       for (const bucket of ['violations','incomplete','passes','inapplicable']) {
-        rules[bucket] = (report.results?.[bucket] || []).filter(rule => rule.tags?.includes(tag)).map(rule => rule.id);
+        const matched = (report.results?.[bucket] || []).filter(rule => rule.tags?.includes(tag));
+        rules[bucket] = matched.map(rule => rule.id);
+        unavailableNodeLists += matched.filter(rule => !Array.isArray(rule.nodes)).length;
+        ruleNodes[bucket] = matched.flatMap(rule => rule.nodes || []);
+        ruleElementChecks[bucket] = ruleNodes[bucket].length;
       }
       const manual = report.manualChecks?.[criterion.id] || { status: 'not-tested' };
       const supplemental = (report.supplementalChecks?.checks || []).filter(check => check.criteria.includes(criterion.id)).map(check => ({ check: check.id, candidates: check.observations.length, recordedAt: report.supplementalChecks.recordedAt }));
@@ -199,7 +205,18 @@ globalThis.accessLensWorkflow = {
         : stale ? 'needs-revalidation'
         : !['pass','not-applicable'].includes(manual.status) ? (rules.incomplete.length || supplemental.some(check => check.candidates) ? 'needs-review' : 'not-tested')
         : limited ? 'scope-limited' : manual.status;
-      return { id: criterion.id, level: criterion.level, name: criterion.title, instruction: criterion.instruction, reference: criterion.url, method: Object.values(rules).some(list => list.length) || supplemental.length ? 'automated-and-manual' : 'manual', rules, supplemental, manual, status };
+      const nodes = Object.values(ruleNodes).flat();
+      const located = node => node.locatorAvailable !== false && Array.isArray(node.target) && node.target.length > 0;
+      const elementCoverage = {
+        ruleElementChecks,
+        uniqueLocatedTargets: new Set(nodes.filter(located).map(node => JSON.stringify(node.target))).size,
+        unlocatedRuleElementChecks: nodes.filter(node => !located(node)).length,
+        unavailableNodeLists,
+        additionalCandidateChecks: supplemental.reduce((total, check) => total + check.candidates, 0),
+        candidateEnumerationLimited: Boolean(report.supplementalChecks?.truncated || (report.supplementalChecks?.checks || []).some(check => check.criteria.includes(criterion.id) && check.truncated)),
+        relevantElementEnumeration: 'not-established', completeAutomatedCoverage: false
+      };
+      return { id: criterion.id, level: criterion.level, name: criterion.title, instruction: criterion.instruction, reference: criterion.url, method: Object.values(rules).some(list => list.length) || supplemental.length ? 'automated-and-manual' : 'manual', rules, supplemental, elementCoverage, manual, status };
     });
     const counts = {};
     for (const criterion of criteria) counts[criterion.status] = (counts[criterion.status] || 0) + 1;
